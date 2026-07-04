@@ -1,6 +1,6 @@
 # FitTrack AI — Backend
 
-API backend de FitTrack AI. Bloque actual: **2.4 — Workout Logs API**.
+API backend de FitTrack AI. Bloque actual: **2.5 — Nutrition Logs API**.
 
 ## Stack
 
@@ -24,7 +24,7 @@ backend/
     main.py                # crea la app FastAPI y monta los routers
     api/
       deps.py               # dependency get_current_user (auth por Bearer token)
-      routes/                # capa HTTP: health.py, auth.py, users.py, workout_plans.py, workout_logs.py
+      routes/                # capa HTTP: health.py, auth.py, users.py, workout_plans.py, workout_logs.py, nutrition_logs.py
     core/
       config.py              # configuración vía variables de entorno (pydantic-settings)
       security.py             # hashing de passwords y JWT (crear/decodificar)
@@ -114,6 +114,53 @@ actividad, no una definición de entrenamiento.
 | `notes`        | text nullable |                                                            |
 | `created_at`   | datetime  | `server_default=now()`                                      |
 
+## Modelo `NutritionLog`
+
+Un `NutritionLog` registra el consumo diario de calorías y macros de un usuario.
+A diferencia de `WorkoutLog`, no referencia ningún otro recurso — cuelga
+directamente del usuario, sin ownership indirecto que validar.
+
+**`nutrition_logs`**
+
+| Campo        | Tipo          | Notas                                                    |
+|--------------|---------------|-------------------------------------------------------------|
+| `id`         | UUID          | PK                                                           |
+| `user_id`    | UUID          | FK → `users.id`, indexado; siempre `current_user.id`         |
+| `date`       | date          | indexado; día al que corresponde el registro                |
+| `calories`   | integer       | mayor o igual a `0`                                          |
+| `protein`    | numeric(6,2)  | mayor o igual a `0`, admite decimales (ej. `105.5`)          |
+| `carbs`      | numeric(6,2)  | mayor o igual a `0`, admite decimales                        |
+| `fats`       | numeric(6,2)  | mayor o igual a `0`, admite decimales                        |
+| `notes`      | text nullable |                                                               |
+| `created_at` / `updated_at` | datetime | igual que `User`                              |
+
+Restricción única: `unique(user_id, date)` — un usuario solo puede tener **un**
+`NutritionLog` por día. Intentar crear un segundo log para una fecha ya
+registrada devuelve `409 Conflict`.
+
+## Modelo `BodyMeasurement`
+
+Un `BodyMeasurement` registra métricas físicas del usuario (peso, cintura,
+estimación de grasa corporal) para un día concreto. Igual que `NutritionLog`,
+cuelga directamente del usuario, sin ownership indirecto que validar.
+
+**`body_measurements`**
+
+| Campo               | Tipo          | Notas                                                       |
+|---------------------|---------------|-------------------------------------------------------------|
+| `id`                | UUID          | PK                                                          |
+| `user_id`           | UUID          | FK → `users.id`, indexado; siempre `current_user.id`        |
+| `date`              | date          | indexado; día al que corresponde la medición               |
+| `weight`            | numeric(6,2)  | requerido, mayor a `0`                                      |
+| `waist`             | numeric(6,2)  | opcional; si viene, mayor a `0`                             |
+| `body_fat_estimate` | numeric(6,2)  | opcional; si viene, entre `1` y `80`                        |
+| `notes`             | text nullable |                                                            |
+| `created_at` / `updated_at` | datetime | igual que `User`                                    |
+
+Restricción única: `unique(user_id, date)` — un usuario solo puede tener **una**
+medición por día. Intentar crear una segunda medición para una fecha ya
+registrada devuelve `409 Conflict`.
+
 ## Setup local
 
 Requisitos: Python 3.11+, [uv](https://docs.astral.sh/uv/), Docker + Docker Compose.
@@ -161,8 +208,8 @@ uv run alembic upgrade head
 ```
 
 Las migraciones de estos bloques (`workout_plans`/`workout_days`/`exercises` en 2.3,
-`workout_logs` en 2.4) ya están generadas y versionadas en `alembic/versions/`; solo
-hace falta aplicarlas:
+`workout_logs` en 2.4, `nutrition_logs` en 2.5, `body_measurements` en 2.6) ya están
+generadas y versionadas en `alembic/versions/`; solo hace falta aplicarlas:
 
 ```bash
 uv run alembic upgrade head
@@ -172,10 +219,23 @@ Verificar que las tablas existen:
 
 ```bash
 docker compose exec db psql -U fittrack -d fittrack -c "\dt"
-# debe listar: users, workout_plans, workout_days, exercises, workout_logs, alembic_version
+# debe listar: users, workout_plans, workout_days, exercises, workout_logs, nutrition_logs, body_measurements, alembic_version
 
 docker compose exec db psql -U fittrack -d fittrack -c "\d workout_logs"
 # debe mostrar columnas, FKs a users/exercises, e índices en user_id, exercise_id y performed_at
+
+docker compose exec db psql -U fittrack -d fittrack -c "\d nutrition_logs"
+# debe mostrar columnas, FK a users, índices en user_id y date, y el unique constraint (user_id, date)
+
+docker compose exec db psql -U fittrack -d fittrack -c "\d body_measurements"
+# debe mostrar columnas, FK a users, índices en user_id y date, y el unique constraint (user_id, date)
+```
+
+Comandos usados para generar la migración de este bloque:
+
+```bash
+uv run alembic revision --autogenerate -m "add body measurements table"
+uv run alembic upgrade head
 ```
 
 ## Autenticación
@@ -344,6 +404,173 @@ pertenezca a un plan del usuario autenticado (`Exercise → WorkoutDay → Worko
 - `weight` opcional; si viene, mayor o igual a `0`.
 - `notes` opcional.
 
+## Nutrition Logs
+
+Todas las rutas de `/nutrition-logs` requieren `Authorization: Bearer <access_token>`
+y operan exclusivamente sobre los logs del usuario autenticado. El cliente nunca
+envía `user_id`. A diferencia de `/workout-logs`, no hay ningún recurso externo que
+validar (`NutritionLog` cuelga directamente del usuario), pero sí una restricción de
+unicidad: un usuario solo puede tener un log por `date`.
+
+| Endpoint                        | Descripción                                                                 |
+|-----------------------------------|-------------------------------------------------------------------------------|
+| `POST /nutrition-logs`            | Registra el consumo diario. `401` sin token, `409` si ya existe un log para esa fecha, `422` si el payload es inválido. |
+| `GET /nutrition-logs`             | Lista los logs del usuario autenticado, más recientes primero. Acepta `date_from`/`date_to` opcionales (`YYYY-MM-DD`, rango inclusivo). |
+| `GET /nutrition-logs/summary`     | Devuelve promedios y totales sobre los logs filtrados por el mismo rango de fechas. |
+
+### `POST /nutrition-logs` — request
+
+```json
+{
+  "date": "2026-07-03",
+  "calories": 1850,
+  "protein": 105.5,
+  "carbs": 210,
+  "fats": 55,
+  "notes": "Good protein intake, slightly low calories."
+}
+```
+
+### `POST /nutrition-logs` / `GET /nutrition-logs` — response
+
+```json
+{
+  "id": "uuid",
+  "date": "2026-07-03",
+  "calories": 1850,
+  "protein": 105.5,
+  "carbs": 210,
+  "fats": 55,
+  "notes": "Good protein intake, slightly low calories."
+}
+```
+
+`GET /nutrition-logs` devuelve una lista de objetos con esta misma forma.
+
+Log duplicado para la misma fecha:
+
+```text
+409 Nutrition log already exists for this date
+```
+
+### `GET /nutrition-logs/summary` — response
+
+```json
+{
+  "days_logged": 5,
+  "avg_calories": 1840,
+  "avg_protein": 102.5,
+  "avg_carbs": 205.2,
+  "avg_fats": 54.8,
+  "total_calories": 9200,
+  "total_protein": 512.5,
+  "total_carbs": 1026,
+  "total_fats": 274
+}
+```
+
+### Validaciones (Pydantic)
+
+- `date` requerido.
+- `calories`, `protein`, `carbs`, `fats` mayores o iguales a `0`.
+- `notes` opcional.
+
+## Body Measurements
+
+Todas las rutas de `/measurements` requieren `Authorization: Bearer <access_token>`
+y operan exclusivamente sobre las mediciones del usuario autenticado. El cliente
+nunca envía `user_id`. Igual que `NutritionLog`, `BodyMeasurement` cuelga directamente
+del usuario y aplica una restricción de unicidad: un usuario solo puede tener una
+medición por `date`.
+
+| Endpoint                      | Descripción                                                                 |
+|-------------------------------|-------------------------------------------------------------------------------|
+| `POST /measurements`          | Registra una medición corporal. `401` sin token, `409` si ya existe una medición para esa fecha, `422` si el payload es inválido. |
+| `GET /measurements`           | Lista las mediciones del usuario autenticado, más recientes primero. Acepta `date_from`/`date_to` opcionales (`YYYY-MM-DD`, rango inclusivo). |
+| `GET /measurements/progress`  | Compara la primera y la última medición del rango filtrado y devuelve los cambios de peso, cintura y grasa corporal. |
+
+### `POST /measurements` — request
+
+```json
+{
+  "date": "2026-07-03",
+  "weight": 70.2,
+  "waist": 82.5,
+  "body_fat_estimate": 24.5,
+  "notes": "Morning measurement after cardio day."
+}
+```
+
+### `POST /measurements` / `GET /measurements` — response
+
+```json
+{
+  "id": "uuid",
+  "date": "2026-07-03",
+  "weight": 70.2,
+  "waist": 82.5,
+  "body_fat_estimate": 24.5,
+  "notes": "Morning measurement after cardio day."
+}
+```
+
+`GET /measurements` devuelve una lista de objetos con esta misma forma.
+
+Medición duplicada para la misma fecha:
+
+```text
+409 Body measurement already exists for this date
+```
+
+### `GET /measurements/progress` — response
+
+```json
+{
+  "measurements_count": 4,
+  "start_date": "2026-07-01",
+  "end_date": "2026-07-31",
+  "start_weight": 71.0,
+  "end_weight": 70.2,
+  "weight_change": -0.8,
+  "start_waist": 83.2,
+  "end_waist": 82.5,
+  "waist_change": -0.7,
+  "start_body_fat_estimate": 25.0,
+  "end_body_fat_estimate": 24.5,
+  "body_fat_change": -0.5
+}
+```
+
+El progreso compara la **primera** y la **última** medición dentro del rango. Si
+solo hay una medición, los cambios son `0`. Si `waist` o `body_fat_estimate` falta
+en alguno de los dos extremos, su cambio se devuelve como `null`. Sin mediciones en
+el rango, la respuesta es controlada (`measurements_count: 0` y el resto `null`):
+
+```json
+{
+  "measurements_count": 0,
+  "start_date": null,
+  "end_date": null,
+  "start_weight": null,
+  "end_weight": null,
+  "weight_change": null,
+  "start_waist": null,
+  "end_waist": null,
+  "waist_change": null,
+  "start_body_fat_estimate": null,
+  "end_body_fat_estimate": null,
+  "body_fat_change": null
+}
+```
+
+### Validaciones (Pydantic)
+
+- `date` requerido.
+- `weight` requerido, mayor a `0`.
+- `waist` opcional; si viene, mayor a `0`.
+- `body_fat_estimate` opcional; si viene, entre `1` y `80`.
+- `notes` opcional.
+
 ## Probar los endpoints con curl
 
 ```bash
@@ -449,6 +676,91 @@ curl -i -X POST http://localhost:8000/workout-logs \
     "sets": 3,
     "reps": 10
   }'
+
+# Crear nutrition log
+curl -s -X POST http://localhost:8000/nutrition-logs \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "date": "2026-07-03",
+    "calories": 1850,
+    "protein": 105.5,
+    "carbs": 210,
+    "fats": 55,
+    "notes": "Good protein intake, slightly low calories."
+  }'
+
+# Intentar crear un segundo nutrition log para la misma fecha -> 409
+curl -i -X POST http://localhost:8000/nutrition-logs \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "date": "2026-07-03",
+    "calories": 1900,
+    "protein": 100,
+    "carbs": 200,
+    "fats": 50
+  }'
+
+# Listar nutrition logs del usuario autenticado
+curl http://localhost:8000/nutrition-logs -H "Authorization: Bearer $TOKEN"
+
+# Listar nutrition logs con filtros de fecha
+curl "http://localhost:8000/nutrition-logs?date_from=2026-07-01&date_to=2026-07-07" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Consultar el resumen de nutrition logs
+curl "http://localhost:8000/nutrition-logs/summary?date_from=2026-07-01&date_to=2026-07-07" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Probar acceso sin token -> 401
+curl -i http://localhost:8000/nutrition-logs
+
+# Crear body measurement
+curl -s -X POST http://localhost:8000/measurements \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "date": "2026-07-01",
+    "weight": 71.0,
+    "waist": 83.2,
+    "body_fat_estimate": 25.0,
+    "notes": "Morning measurement after cardio day."
+  }'
+
+# Intentar crear una segunda medición para la misma fecha -> 409
+curl -i -X POST http://localhost:8000/measurements \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "date": "2026-07-01",
+    "weight": 70.8
+  }'
+
+# Crear varias mediciones en fechas distintas
+curl -s -X POST http://localhost:8000/measurements \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "date": "2026-07-31",
+    "weight": 70.2,
+    "waist": 82.5,
+    "body_fat_estimate": 24.5
+  }'
+
+# Listar body measurements del usuario autenticado
+curl http://localhost:8000/measurements -H "Authorization: Bearer $TOKEN"
+
+# Listar body measurements con filtros de fecha
+curl "http://localhost:8000/measurements?date_from=2026-07-01&date_to=2026-07-31" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Consultar el progreso físico (primera vs última medición del rango)
+curl "http://localhost:8000/measurements/progress?date_from=2026-07-01&date_to=2026-07-31" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Probar acceso sin token -> 401
+curl -i http://localhost:8000/measurements
 ```
 
 Casos de error:
@@ -459,6 +771,8 @@ Casos de error:
 - `POST /workout-plans` sin token → `401 Unauthorized`; con payload inválido (ej. `day_of_week` fuera de `1-7`) → `422 Unprocessable Entity`.
 - `GET /workout-plans/{plan_id}` con un id que no existe o pertenece a otro usuario → `404 Not Found` (mismo mensaje en ambos casos, para no revelar la existencia de planes ajenos).
 - `POST /workout-logs` sin token → `401 Unauthorized`; con un `exercise_id` que no existe o pertenece a otro usuario → `404 Exercise not found`; con payload inválido (ej. `sets: 0`) → `422 Unprocessable Entity`.
+- `POST /nutrition-logs` sin token → `401 Unauthorized`; con una fecha que ya tiene log para ese usuario → `409 Nutrition log already exists for this date`; con payload inválido (ej. `calories: -1`) → `422 Unprocessable Entity`.
+- `POST /measurements` sin token → `401 Unauthorized`; con una fecha que ya tiene medición para ese usuario → `409 Body measurement already exists for this date`; con payload inválido (ej. `weight: 0` o `body_fat_estimate: 200`) → `422 Unprocessable Entity`.
 
 También disponible la documentación interactiva en `http://localhost:8000/docs`.
 
@@ -610,6 +924,111 @@ actividad real del usuario — la base sobre la que un prompt semanal a Azure
 OpenAI podrá razonar sobre adherencia y progreso, en vez de inferirlo de texto
 libre.
 
+## Decisiones técnicas — Bloque 2.5
+
+**¿Por qué `NutritionLog` pertenece directamente al usuario?** Los macros diarios
+son un atributo del usuario, no de un plan o ejercicio — no hay una cadena de
+ownership indirecto que atravesar (a diferencia de `WorkoutLog → Exercise →
+WorkoutDay → WorkoutPlan`). La FK es directa a `users.id`.
+
+**¿Por qué el cliente no debe enviar `user_id`?** Misma razón que en el resto de
+la API: el `user_id` se deriva siempre de `current_user.id` (vía
+`get_current_user`), nunca de un campo del request — evita que un usuario
+autenticado pueda leer o escribir logs de otro (IDOR).
+
+**¿Por qué un log diario por usuario (Opción A) en este MVP?** FitTrack AI se
+enfoca en progreso semanal y recomendaciones agregadas, no en tracking granular
+de comidas individuales. Un registro por día da un resumen limpio y sin
+ambigüedad para el dashboard y para la IA, sin necesitar un concepto de
+`meal_type` todavía.
+
+**¿Por qué `unique(user_id, date)`?** Garantiza a nivel de base de datos que no
+puedan existir dos logs del mismo usuario para el mismo día, sin depender solo
+de la validación en el service. Simplifica los agregados: cada día contribuye
+exactamente un punto de datos a `days_logged`, `avg_*` y `total_*`.
+
+**¿Por qué `protein`, `carbs` y `fats` son numeric/decimal y `calories` es
+integer?** Los macros en gramos admiten valores fraccionarios reales (ej.
+`105.5g` de proteína), mientras que las calorías se reportan y consumen
+convencionalmente como un número entero.
+
+**¿Cómo prepara este módulo los dashboards?** `GET /nutrition-logs/summary`
+entrega promedios y totales de calorías y macros filtrables por rango de
+fechas — el mismo shape que necesitaría una tarjeta de cumplimiento nutricional
+semanal en el cliente mobile, sin que el cliente tenga que descargar y sumar
+los logs individuales.
+
+**¿Cómo prepara este módulo las recomendaciones semanales de IA?** Junto con
+`/workout-logs/summary`, este es el segundo input estructurado de actividad
+real del usuario (qué comió, cuánto, con qué consistencia) que un prompt
+semanal a Azure OpenAI podrá usar para razonar sobre cumplimiento de macros y
+sugerir ajustes, en vez de inferirlo de texto libre.
+
+**Limitaciones conocidas de no registrar comidas individuales:** no es posible
+analizar distribución de macros por comida (desayuno/almuerzo/cena/snacks), ni
+identificar qué alimentos específicos componen el día, ni corregir un registro
+parcial sin sobrescribir el día completo. Es una limitación aceptada para este
+MVP; el modelo (Opción B, múltiples logs por día con `meal_type`) podría
+introducirse más adelante si el caso de uso lo justifica.
+
+## Decisiones técnicas — Bloque 2.6
+
+**¿Por qué `BodyMeasurement` pertenece directamente al usuario?** El progreso
+físico (peso, cintura, grasa corporal) es un atributo del propio usuario, no de
+un plan ni de un ejercicio — no hay cadena de ownership indirecto que atravesar
+(a diferencia de `WorkoutLog → Exercise → WorkoutDay → WorkoutPlan`). La FK es
+directa a `users.id`.
+
+**¿Por qué el cliente no debe enviar `user_id`?** Misma razón que en el resto de
+la API: el `user_id` se deriva siempre de `current_user.id` (vía
+`get_current_user`), nunca de un campo del request — evita que un usuario
+autenticado pueda leer o escribir mediciones de otro (IDOR).
+
+**¿Por qué una medición diaria por usuario en este MVP?** FitTrack AI mide
+progreso en escala semanal/mensual, donde un punto de datos por día es más que
+suficiente. Una sola medición diaria da una serie temporal limpia y sin
+ambigüedad para graficar tendencias y para que la IA razone sobre progreso, sin
+necesitar desambiguar entre varias mediciones del mismo día.
+
+**¿Por qué `unique(user_id, date)`?** Garantiza a nivel de base de datos que no
+existan dos mediciones del mismo usuario para el mismo día, sin depender solo de
+la validación en el service. Además hace determinista el endpoint de progreso:
+cada fecha aporta exactamente un punto, así que "primera" y "última" medición del
+rango están bien definidas.
+
+**¿Por qué `waist` y `body_fat_estimate` son opcionales?** No todos los usuarios
+miden cintura ni estiman grasa corporal en cada registro — muchos solo se pesan.
+Forzar esos campos obligaría a inventar valores que no representan una medición
+real. `weight`, en cambio, es el mínimo indispensable de una medición y por eso
+es requerido.
+
+**¿Por qué el progreso compara primera vs última medición del rango?** Es la
+forma más directa y explicable de responder "¿cuánto cambié en este periodo?":
+el delta entre el primer y el último registro del rango. No requiere ajustar
+regresiones ni promediar, y es exactamente lo que una tarjeta de progreso o un
+prompt de IA necesitan comunicar. Cuando un campo opcional falta en alguno de los
+dos extremos, su cambio se devuelve como `null` en vez de un `0` engañoso.
+
+**¿Cómo prepara este módulo los dashboards?** `GET /measurements` entrega la serie
+temporal lista para graficar tendencias de peso/cintura/grasa, y
+`GET /measurements/progress` entrega los deltas del periodo ya calculados en el
+servidor — el mismo shape que necesitaría una tarjeta de progreso en el cliente
+mobile, sin que este tenga que descargar y comparar mediciones manualmente.
+
+**¿Cómo prepara este módulo las recomendaciones semanales de IA?** Junto con
+`/workout-logs/summary` (actividad) y `/nutrition-logs/summary` (nutrición), el
+progreso físico cierra el triángulo de inputs estructurados: un prompt semanal a
+Azure OpenAI podrá cruzar "cuánto entrenó y comió" con "cómo cambió su cuerpo"
+para razonar sobre resultados reales y sugerir ajustes, en vez de inferirlo de
+texto libre.
+
+**Limitaciones conocidas de no registrar mediciones más avanzadas:** por ahora no
+se capturan otras circunferencias (pecho, brazo, cadera, muslo), ni métodos de
+medición de grasa (pliegues, bioimpedancia, DEXA), ni fotos de progreso (Bloque
+futuro). Tampoco se calculan métricas derivadas (IMC, masa magra estimada). Es una
+limitación aceptada para este MVP; el esquema puede extenderse con más columnas o
+una tabla de circunferencias si el caso de uso lo justifica.
+
 ## Criterios de aceptación de este bloque
 
 - [x] `uv sync` instala todo sin errores.
@@ -644,16 +1063,44 @@ libre.
 - [x] `GET /workout-logs/summary` devuelve agregados básicos correctos.
 - [x] Rutas de `/workout-logs` devuelven `401` sin token; payload inválido
       devuelve `422`.
-- [x] `uv run pytest` pasa (22 tests: health + auth + workout plans + workout
-      logs, todos en verde).
+- [x] Existe el modelo `NutritionLog` con migración Alembic aplicada.
+- [x] `POST /nutrition-logs` crea logs asociados al usuario autenticado; el
+      cliente no envía `user_id`.
+- [x] Se usa `unique(user_id, date)`; un log duplicado para el mismo usuario y
+      fecha devuelve `409 Conflict`.
+- [x] Dos usuarios diferentes pueden registrar la misma fecha sin conflicto.
+- [x] `GET /nutrition-logs` lista solo los logs del usuario autenticado.
+- [x] Los filtros `date_from` y `date_to` funcionan en `GET /nutrition-logs` y
+      `GET /nutrition-logs/summary`.
+- [x] `GET /nutrition-logs/summary` devuelve agregados básicos (promedios y
+      totales) correctos.
+- [x] Rutas de `/nutrition-logs` devuelven `401` sin token; payload inválido
+      devuelve `422`.
+- [x] Existe el modelo `BodyMeasurement` con migración Alembic aplicada.
+- [x] `POST /measurements` crea mediciones asociadas al usuario autenticado; el
+      cliente no envía `user_id`.
+- [x] Se usa `unique(user_id, date)`; una medición duplicada para el mismo usuario
+      y fecha devuelve `409 Conflict`.
+- [x] Dos usuarios diferentes pueden registrar la misma fecha sin conflicto.
+- [x] `GET /measurements` lista solo las mediciones del usuario autenticado.
+- [x] Los filtros `date_from` y `date_to` funcionan en `GET /measurements` y
+      `GET /measurements/progress`.
+- [x] `GET /measurements/progress` devuelve los cambios entre la primera y la
+      última medición del rango; sin datos devuelve una respuesta controlada
+      (`measurements_count: 0` y el resto `null`).
+- [x] Rutas de `/measurements` devuelven `401` sin token; payload inválido
+      devuelve `422`.
+- [x] `uv run pytest` pasa (39 tests: health + auth + workout plans + workout
+      logs + nutrition logs + body measurements, todos en verde).
 - [x] `uv run ruff check .` limpio.
 - [x] Sin secretos hardcodeados; todo vía `.env` / `pydantic-settings`.
 - [x] Capas separadas (`routes` / `services` / `models` / `schemas` / `db` / `core`).
 
 ## Siguiente paso recomendado
 
-**Bloque 2.5 — Nutrition Logs API**: permitirá registrar macros diarios del
-usuario autenticado, siguiendo el mismo patrón de capas (`routes` → `services` →
-`models`/`schemas`) y ownership vía `get_current_user`. Junto con los workout
-logs de este bloque, será el segundo input clave para las futuras
-recomendaciones semanales de IA.
+**Bloque 2.7 — Weekly Summary Data API**: consolidará workouts, nutrition y
+measurements en una única respuesta semanal (un endpoint que agregue los
+`/summary` y `/progress` ya existentes por rango de fechas). Será el input
+directo y estructurado para el servicio de recomendaciones con Azure OpenAI,
+evitando que la capa de IA tenga que orquestar varias llamadas y unir datos por
+su cuenta.
