@@ -571,6 +571,135 @@ el rango, la respuesta es controlada (`measurements_count: 0` y el resto `null`)
 - `body_fat_estimate` opcional; si viene, entre `1` y `80`.
 - `notes` opcional.
 
+## Weekly Summary
+
+`GET /weekly-summary` requiere `Authorization: Bearer <access_token>` y consolida,
+en una sola respuesta, los datos de `workout_logs`, `nutrition_logs` y
+`body_measurements` para una semana del usuario autenticado. No crea tablas
+nuevas: orquesta los servicios (`get_summary` / `get_progress`) que ya existen
+para cada dominio. Todavía **no llama a ningún modelo de IA** — solo prepara la
+capa de datos consolidada.
+
+| Endpoint                          | Descripción                                                                 |
+|------------------------------------|-------------------------------------------------------------------------------|
+| `GET /weekly-summary?week_start=YYYY-MM-DD` | Consolida workouts, nutrición y mediciones de la semana `[week_start, week_start + 6 días]`. `401` sin token, `422` si falta `week_start` o el formato es inválido. |
+
+### `GET /weekly-summary?week_start=2026-07-01` — response
+
+```json
+{
+  "user": { "id": "uuid", "name": "Felipe Garcia", "goal": "body recomposition" },
+  "period": { "week_start": "2026-07-01", "week_end": "2026-07-07" },
+  "workouts": {
+    "total_logs": 4,
+    "total_sets": 16,
+    "total_reps": 128,
+    "unique_exercises": 3,
+    "workout_days": 2
+  },
+  "nutrition": {
+    "days_logged": 5,
+    "avg_calories": 1840,
+    "avg_protein": 102.5,
+    "avg_carbs": 205.2,
+    "avg_fats": 54.8,
+    "total_calories": 9200,
+    "total_protein": 512.5,
+    "total_carbs": 1026,
+    "total_fats": 274
+  },
+  "measurements": {
+    "measurements_count": 2,
+    "start_date": "2026-07-01",
+    "end_date": "2026-07-07",
+    "start_weight": 71.0,
+    "end_weight": 70.2,
+    "weight_change": -0.8,
+    "start_waist": 83.2,
+    "end_waist": 82.5,
+    "waist_change": -0.7,
+    "start_body_fat_estimate": 25.0,
+    "end_body_fat_estimate": 24.5,
+    "body_fat_change": -0.5
+  },
+  "data_quality": {
+    "has_workout_data": true,
+    "has_nutrition_data": true,
+    "has_measurement_data": true,
+    "nutrition_days_logged": 5,
+    "measurement_entries": 2,
+    "is_ready_for_ai_recommendation": true,
+    "missing_data": []
+  }
+}
+```
+
+Sin datos en la semana, la respuesta es controlada (no falla): agregados en `0`,
+promedios/deltas en `null`, y `data_quality.missing_data` lista los dominios
+faltantes:
+
+```json
+{
+  "user": { "id": "uuid", "name": "Felipe Garcia", "goal": "body recomposition" },
+  "period": { "week_start": "2026-07-01", "week_end": "2026-07-07" },
+  "workouts": { "total_logs": 0, "total_sets": 0, "total_reps": 0, "unique_exercises": 0, "workout_days": 0 },
+  "nutrition": {
+    "days_logged": 0,
+    "avg_calories": null,
+    "avg_protein": null,
+    "avg_carbs": null,
+    "avg_fats": null,
+    "total_calories": 0,
+    "total_protein": 0,
+    "total_carbs": 0,
+    "total_fats": 0
+  },
+  "measurements": {
+    "measurements_count": 0,
+    "start_date": null,
+    "end_date": null,
+    "start_weight": null,
+    "end_weight": null,
+    "weight_change": null,
+    "start_waist": null,
+    "end_waist": null,
+    "waist_change": null,
+    "start_body_fat_estimate": null,
+    "end_body_fat_estimate": null,
+    "body_fat_change": null
+  },
+  "data_quality": {
+    "has_workout_data": false,
+    "has_nutrition_data": false,
+    "has_measurement_data": false,
+    "nutrition_days_logged": 0,
+    "measurement_entries": 0,
+    "is_ready_for_ai_recommendation": false,
+    "missing_data": ["workout_logs", "nutrition_logs", "body_measurements"]
+  }
+}
+```
+
+### Regla de `is_ready_for_ai_recommendation`
+
+```text
+is_ready_for_ai_recommendation = true cuando:
+- hay al menos 1 workout log en la semana
+- hay al menos 3 nutrition logs en la semana
+- hay al menos 1 body measurement en la semana
+```
+
+Si no se cumple alguna condición, es `false` y el dominio correspondiente aparece
+en `missing_data` (`"workout_logs"`, `"nutrition_logs"`, `"body_measurements"`).
+
+### Validaciones
+
+- `week_start` requerido y debe ser una fecha válida (`YYYY-MM-DD`); si falta o
+  el formato es inválido, FastAPI devuelve `422`.
+- `week_end` siempre se calcula en backend como `week_start + 6 días`; no se
+  acepta como parámetro.
+- El cliente nunca envía `user_id`; se usa siempre `current_user.id`.
+
 ## Probar los endpoints con curl
 
 ```bash
@@ -761,6 +890,20 @@ curl "http://localhost:8000/measurements/progress?date_from=2026-07-01&date_to=2
 
 # Probar acceso sin token -> 401
 curl -i http://localhost:8000/measurements
+
+# Consultar el weekly summary (consolida workouts + nutrición + mediciones de la semana)
+curl "http://localhost:8000/weekly-summary?week_start=2026-07-01" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Weekly summary de una semana sin datos -> respuesta controlada (200), no error
+curl "http://localhost:8000/weekly-summary?week_start=2099-01-01" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Probar acceso sin token -> 401
+curl -i "http://localhost:8000/weekly-summary?week_start=2026-07-01"
+
+# Probar sin week_start -> 422
+curl -i "http://localhost:8000/weekly-summary" -H "Authorization: Bearer $TOKEN"
 ```
 
 Casos de error:
@@ -773,6 +916,7 @@ Casos de error:
 - `POST /workout-logs` sin token → `401 Unauthorized`; con un `exercise_id` que no existe o pertenece a otro usuario → `404 Exercise not found`; con payload inválido (ej. `sets: 0`) → `422 Unprocessable Entity`.
 - `POST /nutrition-logs` sin token → `401 Unauthorized`; con una fecha que ya tiene log para ese usuario → `409 Nutrition log already exists for this date`; con payload inválido (ej. `calories: -1`) → `422 Unprocessable Entity`.
 - `POST /measurements` sin token → `401 Unauthorized`; con una fecha que ya tiene medición para ese usuario → `409 Body measurement already exists for this date`; con payload inválido (ej. `weight: 0` o `body_fat_estimate: 200`) → `422 Unprocessable Entity`.
+- `GET /weekly-summary` sin token → `401 Unauthorized`; sin `week_start` o con formato inválido → `422 Unprocessable Entity`.
 
 También disponible la documentación interactiva en `http://localhost:8000/docs`.
 
@@ -1029,6 +1173,60 @@ futuro). Tampoco se calculan métricas derivadas (IMC, masa magra estimada). Es 
 limitación aceptada para este MVP; el esquema puede extenderse con más columnas o
 una tabla de circunferencias si el caso de uso lo justifica.
 
+## Decisiones técnicas — Bloque 2.7
+
+**¿Por qué este bloque no debe llamar todavía a IA?** Separar la "capa de datos"
+de la "capa de inferencia" mantiene este endpoint determinista, barato y fácil de
+testear con asserts exactos. La IA se añade encima después, sin tener que
+reescribir la agregación ni sus tests.
+
+**¿Por qué consolidar datos antes de crear recomendaciones?** Un prompt de IA
+necesita un input único, estable y validado — no tres llamadas a `/summary` y
+`/progress` que el propio módulo de IA tendría que orquestar y sincronizar por
+rango de fechas. Consolidar primero da un contrato limpio y reutilizable.
+
+**¿Por qué `week_start` debe venir del cliente?** Qué semana se está mirando es
+una decisión de producto/UI (el usuario navega el dashboard semana a semana); el
+backend no debe adivinar cuál es "la semana actual" del usuario.
+
+**¿Por qué `week_end` se calcula en backend?** Garantiza siempre una semana de
+7 días exactos y evita que el cliente envíe rangos arbitrarios (ej. 3 días o 40
+días) que romperían el contrato de "resumen semanal". Es una regla de negocio
+centralizada en un solo lugar.
+
+**¿Por qué el endpoint debe funcionar aunque falten datos?** Un dashboard nunca
+debería romperse porque el usuario no registró nada esa semana. Se devuelve una
+respuesta controlada (ceros y `null`, nunca un error) — el mismo criterio ya
+aplicado en `/nutrition-logs/summary` y `/measurements/progress`.
+
+**¿Por qué agregar `data_quality`?** Hace explícita, en un solo bloque, la
+completitud de los datos de la semana, para que tanto el dashboard mobile como
+el futuro servicio de IA puedan decidir cómo actuar sin tener que re-inspeccionar
+manualmente cada agregado.
+
+**¿Por qué `is_ready_for_ai_recommendation` debe ser explícito?** Evita que el
+módulo de IA futuro genere recomendaciones sobre datos casi inexistentes (ej. un
+solo log de nutrición). La regla es simple, auditable y vive en un solo lugar
+(`weekly_summary_service.py`) en vez de una heurística oculta dentro del prompt.
+
+**¿Cómo sirve este endpoint al dashboard mobile?** Una sola llamada
+(`GET /weekly-summary?week_start=...`) entrega todo lo que necesita una vista
+semanal: entrenamiento, nutrición y progreso físico, ya agregados y con la señal
+de qué tan completos están los datos.
+
+**¿Cómo sirve este endpoint a `POST /recommendations/weekly` (Bloque 5.1)?** Será
+su input directo: el servicio de IA llamará a `weekly_summary_service` (o al
+propio endpoint), revisará `data_quality.is_ready_for_ai_recommendation`, y solo
+si es `true` construirá el prompt hacia Azure OpenAI. Si es `false`, puede
+devolver un mensaje explicando qué falta en vez de forzar una recomendación con
+datos insuficientes.
+
+**Limitaciones conocidas:** el rango de la semana es fijo en 7 días a partir de
+`week_start` (no se admiten semanas parciales ni rangos custom); el reporte se
+recalcula en cada request (no hay caché ni tabla de snapshots semanales); y no
+persiste historial de "resúmenes generados" — cada llamada recalcula desde los
+logs crudos.
+
 ## Criterios de aceptación de este bloque
 
 - [x] `uv sync` instala todo sin errores.
@@ -1090,17 +1288,27 @@ una tabla de circunferencias si el caso de uso lo justifica.
       (`measurements_count: 0` y el resto `null`).
 - [x] Rutas de `/measurements` devuelven `401` sin token; payload inválido
       devuelve `422`.
-- [x] `uv run pytest` pasa (39 tests: health + auth + workout plans + workout
-      logs + nutrition logs + body measurements, todos en verde).
+- [x] Existe `GET /weekly-summary`, protegido con Bearer token; el cliente no
+      envía `user_id`, se usa `current_user.id`.
+- [x] `week_start` es requerido y válido; sin él o con formato inválido devuelve
+      `422`. `week_end` se calcula siempre en backend (`week_start + 6 días`).
+- [x] Consolida correctamente workout logs, nutrition logs y body measurements
+      de la semana.
+- [x] Sin datos en la semana, devuelve una respuesta controlada (agregados en
+      `0`, promedios/deltas en `null`), nunca un error.
+- [x] Incluye `data_quality` con `is_ready_for_ai_recommendation` calculado con
+      la regla explícita (≥1 workout log, ≥3 nutrition logs, ≥1 medición).
+- [x] Un usuario no ve datos semanales de otro usuario.
+- [x] `uv run pytest` pasa (48 tests: health + auth + workout plans + workout
+      logs + nutrition logs + body measurements + weekly summary, todos en
+      verde).
 - [x] `uv run ruff check .` limpio.
 - [x] Sin secretos hardcodeados; todo vía `.env` / `pydantic-settings`.
 - [x] Capas separadas (`routes` / `services` / `models` / `schemas` / `db` / `core`).
 
 ## Siguiente paso recomendado
 
-**Bloque 2.7 — Weekly Summary Data API**: consolidará workouts, nutrition y
-measurements en una única respuesta semanal (un endpoint que agregue los
-`/summary` y `/progress` ya existentes por rango de fechas). Será el input
-directo y estructurado para el servicio de recomendaciones con Azure OpenAI,
-evitando que la capa de IA tenga que orquestar varias llamadas y unir datos por
-su cuenta.
+**Bloque 5.1 — AI Weekly Recommendation Service**: usará `GET /weekly-summary`
+como base para generar recomendaciones semanales con IA (Azure OpenAI),
+revisando primero `data_quality.is_ready_for_ai_recommendation` y manteniendo
+reglas de seguridad para evitar consejos médicos o diagnósticos.
