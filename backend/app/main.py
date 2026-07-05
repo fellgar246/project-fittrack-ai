@@ -5,6 +5,7 @@ from app.api.routes import (
     health,
     measurements,
     nutrition_logs,
+    recommendations,
     users,
     weekly_summary,
     workout_logs,
@@ -22,3 +23,4 @@ app.include_router(workout_logs.router)
 app.include_router(nutrition_logs.router)
 app.include_router(measurements.router)
 app.include_router(weekly_summary.router)
+app.include_router(recommendations.router)

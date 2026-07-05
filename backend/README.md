@@ -1,6 +1,6 @@
 # FitTrack AI — Backend
 
-API backend de FitTrack AI. Bloque actual: **2.5 — Nutrition Logs API**.
+API backend de FitTrack AI. Bloque actual: **5.2 — Azure OpenAI Integration**.
 
 ## Stack
 
@@ -24,7 +24,7 @@ backend/
     main.py                # crea la app FastAPI y monta los routers
     api/
       deps.py               # dependency get_current_user (auth por Bearer token)
-      routes/                # capa HTTP: health.py, auth.py, users.py, workout_plans.py, workout_logs.py, nutrition_logs.py
+      routes/                # capa HTTP: health, auth, users, workout_plans, workout_logs, nutrition_logs, measurements, weekly_summary, recommendations
     core/
       config.py              # configuración vía variables de entorno (pydantic-settings)
       security.py             # hashing de passwords y JWT (crear/decodificar)
@@ -700,6 +700,255 @@ en `missing_data` (`"workout_logs"`, `"nutrition_logs"`, `"body_measurements"`).
   acepta como parámetro.
 - El cliente nunca envía `user_id`; se usa siempre `current_user.id`.
 
+## AI Weekly Recommendations (Bloque 5.1)
+
+Primer módulo de **IA aplicada** de FitTrack AI. Toma el weekly summary
+consolidado como input, genera una recomendación fitness segura y la persiste.
+La generación está aislada detrás de un `AIProvider` con dos implementaciones:
+`FakeAIProvider` (default, determinista, sin credenciales) y `AzureOpenAIProvider`
+(integración real con Azure OpenAI, ver [Bloque 5.2](#ai-provider-azure-openai-bloque-52)
+más abajo). El flujo local y los tests siguen siendo 100% deterministas y no
+dependen de credenciales ni de internet.
+
+### Modelo `AIRecommendation`
+
+| Campo            | Tipo      | Notas                                                        |
+|------------------|-----------|--------------------------------------------------------------|
+| `id`             | UUID      | PK, generado en Python (`uuid.uuid4`)                        |
+| `user_id`        | UUID      | FK → `users.id`, indexado                                    |
+| `week_start`     | date      | indexado; enviado por el cliente                             |
+| `week_end`       | date      | calculado en backend (`week_start + 6 días`)                 |
+| `summary`        | text      | resumen en lenguaje natural de la semana                     |
+| `insights`       | jsonb     | lista de observaciones (`list[str]`)                         |
+| `recommendation` | text      | recomendación práctica de hábitos                            |
+| `safety_notes`   | text/null | nota de seguridad; siempre poblada aunque el provider la omita |
+| `created_at`     | datetime  | `server_default=now()`                                       |
+
+Restricción única: `unique(user_id, week_start, week_end)` (`uq_ai_recommendations_user_week`)
+— evita recomendaciones duplicadas para la misma semana.
+
+### `POST /recommendations/weekly` — request
+
+```json
+{
+  "week_start": "2026-07-01"
+}
+```
+
+- Protegido con Bearer token. El cliente **solo** envía `week_start`.
+- `week_end` se calcula en backend; `user_id` sale de `current_user.id`.
+- El backend consulta internamente el weekly summary y valida
+  `data_quality.is_ready_for_ai_recommendation` antes de llamar a la IA.
+
+### `POST /recommendations/weekly` — response (`201`)
+
+```json
+{
+  "id": "a3f1c2d4-....",
+  "week_start": "2026-07-01",
+  "week_end": "2026-07-07",
+  "summary": "Completaste 1 registros de entrenamiento en 1 día(s) y registraste nutrición 3 día(s).",
+  "insights": [
+    "Tu consistencia de entrenamiento fue moderada durante la semana.",
+    "La proteína estuvo registrada durante suficientes días para detectar una tendencia."
+  ],
+  "recommendation": "Mantén tus calorías similares durante una semana más, prioriza llegar a tu proteína diaria y conserva la estructura actual de entrenamiento.",
+  "safety_notes": "This recommendation is for general fitness habit tracking only and does not replace medical advice."
+}
+```
+
+### `GET /recommendations/latest` — response
+
+Devuelve la última recomendación del usuario autenticado (por `week_start`
+descendente, desempatando por `created_at`), con la misma forma que el `POST`.
+Si el usuario no tiene ninguna recomendación → `404 Recommendation not found`.
+
+### Regla de data readiness
+
+Antes de generar, el servicio consulta el weekly summary y exige
+`data_quality.is_ready_for_ai_recommendation == true` (≥1 workout log, ≥3
+nutrition logs, ≥1 body measurement en la semana). Si no se cumple, devuelve
+`422` con el detalle de qué falta:
+
+```json
+{
+  "detail": {
+    "message": "Not enough weekly data to generate recommendation",
+    "missing_data": ["workout_logs", "body_measurements"]
+  }
+}
+```
+
+### Seguridad de IA
+
+La recomendación se limita a observaciones **generales** de fitness y hábitos.
+El prompt (en `services/ai_provider.py`) instruye explícitamente a la IA a **no**
+dar diagnósticos ni consejos médicos/clínicos, no prometer pérdida de peso, no
+recomendar cambios extremos de calorías, suplementos ni medicación, no hacer
+comentarios negativos sobre el cuerpo, y a usar **solo** los datos entregados sin
+inventar información. Toda recomendación incluye además una `safety_notes`
+garantizada en backend:
+
+```text
+This recommendation is for general fitness habit tracking only and does not replace medical advice.
+```
+
+### Variables de entorno del AI provider
+
+```env
+AI_PROVIDER=fake          # fake (default) | azure
+AZURE_OPENAI_ENDPOINT=
+AZURE_OPENAI_API_KEY=
+AZURE_OPENAI_DEPLOYMENT=
+AZURE_OPENAI_API_VERSION=
+AZURE_OPENAI_TIMEOUT_SECONDS=20   # opcional, default 20
+AZURE_OPENAI_MAX_RETRIES=2        # opcional, default 2
+```
+
+El provider `fake` funciona sin ninguna de estas variables. El provider `azure`
+implementa la llamada real a Azure OpenAI — ver la siguiente sección.
+
+### Validaciones
+
+- `week_start` requerido y válido (`YYYY-MM-DD`); si falta o el formato es
+  inválido → `422`.
+- No se acepta `week_end` ni `user_id` desde el cliente.
+- Datos insuficientes → `422` (con `missing_data`).
+- Recomendación ya existente para esa semana → `409 Recommendation already exists for this week`.
+- Si el AI provider devuelve JSON inválido o no parseable, se maneja de forma
+  controlada → `502 AI provider returned an invalid response`.
+
+## AI Provider: Azure OpenAI (Bloque 5.2)
+
+Implementa la integración real con **Azure OpenAI** dentro de
+`AzureOpenAIProvider.generate` (`app/services/ai_provider.py`), usando el SDK
+oficial `openai` (`AsyncAzureOpenAI`). `FakeAIProvider` sigue siendo el default
+para desarrollo local y tests.
+
+### Fake vs Azure
+
+| | `AI_PROVIDER=fake` (default) | `AI_PROVIDER=azure` |
+|---|---|---|
+| Credenciales | No requiere ninguna | Requiere las 4 variables `AZURE_OPENAI_*` |
+| Llamadas de red | Ninguna | HTTP a Azure OpenAI |
+| Determinismo | Total (reglas locales) | Depende del modelo |
+| Uso | Local, tests, CI | Manual / cloud |
+
+### Cómo funciona `AzureOpenAIProvider.generate`
+
+1. Construye el prompt seguro con `build_prompt(summary)` (mismas reglas de
+   seguridad descritas en [Seguridad de IA](#seguridad-de-ia)).
+2. Crea (o reutiliza, si se inyectó en el constructor) un cliente
+   `AsyncAzureOpenAI` con `azure_endpoint`, `api_key`, `api_version`, y los
+   timeouts/retries configurados.
+3. Llama a `client.chat.completions.create(...)` usando el `deployment`
+   configurado como `model`, y `response_format={"type": "json_object"}` para
+   pedir explícitamente una respuesta JSON.
+4. Devuelve el string JSON crudo; la validación con `AIGeneratedContent` y la
+   persistencia ocurren en `recommendation_service.py`, igual que con el fake.
+
+La validación de configuración (`AZURE_OPENAI_*` completas) ocurre de forma
+**perezosa**, dentro de `generate`, no en el constructor — así el error queda
+dentro del `try/except` de la ruta y se traduce en una respuesta HTTP
+controlada en vez de un `500` sin manejar.
+
+### Manejo de errores
+
+| Situación                        | Excepción                      | HTTP | Detail                                       |
+|-----------------------------------|---------------------------------|------|-----------------------------------------------|
+| Falta configuración de Azure      | `AIProviderNotConfiguredError`  | 503  | `AI provider is not configured`               |
+| Timeout de Azure OpenAI            | `AIProviderTimeoutError`        | 503  | `AI provider timeout`                         |
+| Error de API/SDK de Azure          | `AIProviderError`               | 502  | `AI provider failed`                          |
+| Respuesta JSON inválida o vacía    | `InvalidAIResponseError`        | 502  | `AI provider returned an invalid response`    |
+
+Ningún detalle interno del SDK (mensajes de `openai.OpenAIError`, headers,
+request ids) se expone al cliente. Nunca se loggean secretos ni el contenido
+completo del prompt del usuario.
+
+### Probar en modo fake (sin credenciales)
+
+```bash
+export AI_PROVIDER=fake
+uv run uvicorn app.main:app --reload
+```
+
+Sigue el mismo flujo de curl de la sección anterior — no requiere ningún
+`AZURE_OPENAI_*`.
+
+### Probar con Azure OpenAI real
+
+```bash
+export AI_PROVIDER=azure
+export AZURE_OPENAI_ENDPOINT="https://<resource-name>.openai.azure.com/"
+export AZURE_OPENAI_API_KEY="<secret>"
+export AZURE_OPENAI_DEPLOYMENT="<deployment-name>"
+export AZURE_OPENAI_API_VERSION="<api-version>"
+uv run uvicorn app.main:app --reload
+```
+
+Luego repite el mismo flujo: registrar/login, sembrar datos mínimos (1 workout
+log, 3 nutrition logs, 1 measurement), `POST /recommendations/weekly` y
+`GET /recommendations/latest` para confirmar la persistencia. Sin las 4
+variables → `503`; si Azure responde pero con contenido no parseable → `502`.
+
+No incluyas valores reales de `AZURE_OPENAI_API_KEY` (ni ningún otro secreto)
+en el repositorio.
+
+### Decisiones técnicas — Bloque 5.2
+
+1. **`FakeAIProvider` se conserva como default**: mantiene el flujo local y de
+   tests 100% determinista y sin dependencias externas.
+2. **`AI_PROVIDER` como feature switch**: cambiar de fake a azure es una
+   variable de entorno, no un cambio de código.
+3. **`AzureOpenAIProvider` aislado en su propia clase**: el resto del sistema
+   (rutas, servicio, tests) solo conoce la interfaz `AIProvider`.
+4. **Validación de configuración solo cuando se usa `azure`**: el provider fake
+   nunca exige `AZURE_OPENAI_*`.
+5. **Validación movida de `__init__` a `generate`**: para que el error de
+   configuración ocurra dentro del `try/except` de la ruta (y se traduzca a un
+   `503` controlado) en lugar de fallar al resolver la dependency de FastAPI.
+6. **Se pide `response_format={"type": "json_object"}`**: refuerza a nivel de
+   API la instrucción textual del prompt de responder solo JSON.
+7. **La respuesta se valida con `AIGeneratedContent` antes de persistir**:
+   JSON válido pero con forma incorrecta nunca llega a la base de datos.
+8. **No se hacen llamadas reales a Azure en tests**: se inyecta un cliente fake
+   (`AsyncAzureOpenAI` sustituido por un mock) en `AzureOpenAIProvider.__init__`.
+9. **Errores del SDK se mapean a excepciones propias** (`AIProviderError` y
+   subclases) antes de llegar a la ruta, para no exponer detalles internos del
+   SDK ni depender de sus tipos en el resto del código.
+10. **No se loggean prompts completos ni secretos**: prepara el camino para
+    activar Azure Monitor / Application Insights más adelante sin filtrar
+    datos sensibles del usuario ni credenciales.
+11. **Esto deja la app lista para Azure Container Apps**: el provider ya lee
+    toda su configuración desde variables de entorno, que es exactamente cómo
+    se inyectan secretos en Container Apps (env vars / secrets), sin cambios
+    de código adicionales.
+
+### Limitaciones conocidas
+
+- No hay streaming de la respuesta (se pide la respuesta completa de una vez).
+- No hay caché de respuestas ni límite de rate por usuario más allá del
+  `unique(user_id, week_start, week_end)` existente.
+- El retry ante errores transitorios lo maneja el SDK (`AZURE_OPENAI_MAX_RETRIES`);
+  no hay backoff/retry adicional a nivel de aplicación.
+- No se valida el modelo/deployment contra un listado conocido; un `deployment`
+  mal escrito fallará como `AIProviderError` (502) al llamar a Azure.
+
+### Criterios de aceptación
+
+- [x] `openai` agregado como dependencia (`uv add openai`).
+- [x] `FakeAIProvider` sigue siendo el default (`AI_PROVIDER=fake`).
+- [x] `AzureOpenAIProvider.generate` implementado con `AsyncAzureOpenAI`.
+- [x] `AI_PROVIDER=fake` no requiere credenciales.
+- [x] `AI_PROVIDER=azure` requiere las 4 variables `AZURE_OPENAI_*`.
+- [x] No hay secretos hardcodeados; todo viene de variables de entorno.
+- [x] Se pide y valida una respuesta JSON estructurada (`AIGeneratedContent`).
+- [x] JSON inválido o vacío no se persiste.
+- [x] Timeout/error del provider se manejan de forma controlada (`503`/`502`).
+- [x] Tests usan mocks/clientes inyectados; ninguna llamada real a Azure.
+- [x] `uv run pytest` y `uv run ruff check .` en verde.
+- [x] README actualizado con fake vs Azure, variables, curl y manejo de errores.
+
 ## Probar los endpoints con curl
 
 ```bash
@@ -904,6 +1153,36 @@ curl -i "http://localhost:8000/weekly-summary?week_start=2026-07-01"
 
 # Probar sin week_start -> 422
 curl -i "http://localhost:8000/weekly-summary" -H "Authorization: Bearer $TOKEN"
+
+# --- AI Weekly Recommendations (Bloque 5.1) ---
+# Para que la generación funcione, la semana debe estar "ready": >=1 workout log,
+# >=3 nutrition logs y >=1 medición dentro de la semana (ver curls anteriores).
+
+# Generar la recomendación semanal (usa el fake provider por defecto)
+curl -X POST http://localhost:8000/recommendations/weekly \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"week_start":"2026-07-01"}'
+
+# Consultar la última recomendación del usuario autenticado
+curl http://localhost:8000/recommendations/latest -H "Authorization: Bearer $TOKEN"
+
+# Intentar regenerar la misma semana -> 409
+curl -i -X POST http://localhost:8000/recommendations/weekly \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"week_start":"2026-07-01"}'
+
+# Generar para una semana sin datos suficientes -> 422 (con missing_data)
+curl -i -X POST http://localhost:8000/recommendations/weekly \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"week_start":"2099-01-01"}'
+
+# Probar acceso sin token -> 401
+curl -i -X POST http://localhost:8000/recommendations/weekly \
+  -H "Content-Type: application/json" \
+  -d '{"week_start":"2026-07-01"}'
 ```
 
 Casos de error:
@@ -917,6 +1196,8 @@ Casos de error:
 - `POST /nutrition-logs` sin token → `401 Unauthorized`; con una fecha que ya tiene log para ese usuario → `409 Nutrition log already exists for this date`; con payload inválido (ej. `calories: -1`) → `422 Unprocessable Entity`.
 - `POST /measurements` sin token → `401 Unauthorized`; con una fecha que ya tiene medición para ese usuario → `409 Body measurement already exists for this date`; con payload inválido (ej. `weight: 0` o `body_fat_estimate: 200`) → `422 Unprocessable Entity`.
 - `GET /weekly-summary` sin token → `401 Unauthorized`; sin `week_start` o con formato inválido → `422 Unprocessable Entity`.
+- `POST /recommendations/weekly` sin token → `401 Unauthorized`; sin `week_start`/formato inválido → `422`; datos insuficientes → `422` (con `missing_data`); recomendación ya existente para esa semana → `409 Recommendation already exists for this week`; respuesta inválida del AI provider → `502`.
+- `GET /recommendations/latest` sin token → `401 Unauthorized`; sin recomendaciones → `404 Recommendation not found`.
 
 También disponible la documentación interactiva en `http://localhost:8000/docs`.
 
@@ -1227,6 +1508,67 @@ recalcula en cada request (no hay caché ni tabla de snapshots semanales); y no
 persiste historial de "resúmenes generados" — cada llamada recalcula desde los
 logs crudos.
 
+## Decisiones técnicas — Bloque 5.1
+
+**¿Por qué usar el weekly summary como input en vez de consultar las tablas
+directamente desde el servicio de IA?** El summary ya es un contrato único,
+validado y con `data_quality` calculado. Reutilizarlo evita duplicar lógica de
+agregación y sincronización de rangos en el módulo de IA, y garantiza que la IA
+ve exactamente los mismos números que el dashboard.
+
+**¿Por qué validar `data_quality` antes de generar?** Genera recomendaciones
+solo cuando hay señal real (≥1 workout, ≥3 días de nutrición, ≥1 medición). Sin
+esto la IA "alucinaría" tendencias sobre uno o dos datos. La regla vive en un
+solo lugar (`weekly_summary_service`) y es auditable, no una heurística escondida
+en el prompt.
+
+**¿Por qué persistir las recomendaciones?** Son un artefacto de producto: el
+usuario debe poder volver a verlas, se muestran en el historial del dashboard, y
+no queremos re-llamar (ni re-pagar) a un modelo para releer algo ya generado.
+Además fija la recomendación en el tiempo aunque los logs crudos cambien después.
+
+**¿Por qué `unique(user_id, week_start, week_end)`?** Una semana tiene una única
+recomendación por usuario. La constraint hace imposible duplicar a nivel de base
+de datos, y el servicio la traduce a un `409` claro en vez de acumular filas.
+
+**¿Por qué no aceptar `user_id` del cliente?** Seguridad y scoping estricto: el
+dueño de los datos es siempre `current_user`. Aceptar `user_id` abriría un IDOR
+(un usuario generando/leyendo recomendaciones de otro).
+
+**¿Por qué un fake provider en tests/local?** Hace el flow end-to-end
+determinista, gratis y sin dependencia de red ni credenciales. Los tests
+asertan comportamiento (persistencia, 201/409/422/404/502, scoping) sin llamar
+nunca a Azure OpenAI.
+
+**¿Por qué aislar la IA en `ai_provider.py`?** El resto de la app depende de una
+interfaz (`AIProvider.generate(summary) -> str`), no de un SDK concreto. Cambiar
+de fake a Azure OpenAI (Bloque 5.2) es cambiar una implementación y una variable
+de entorno, sin tocar routes ni el service de dominio. El provider se inyecta vía
+`Depends(get_ai_provider)`, lo que además permite sobrescribirlo en tests.
+
+**¿Por qué la IA debe devolver JSON estructurado?** Da un contrato parseable y
+validable (`AIGeneratedContent` con Pydantic). Si el modelo devuelve algo que no
+es JSON válido o no cumple el esquema, se detecta y se traduce a un `502`
+controlado en vez de persistir basura o romper la respuesta.
+
+**¿Por qué evitar consejos médicos o diagnósticos?** Es una app de seguimiento de
+hábitos, no un producto sanitario. El prompt prohíbe explícitamente diagnósticos,
+tratamientos, cambios extremos y comentarios sobre el cuerpo; y toda respuesta
+lleva una `safety_notes` garantizada por backend, reduciendo riesgo legal y de
+producto.
+
+**¿Cómo prepara este bloque la integración con Azure OpenAI?** `AzureOpenAIProvider`
+ya existe estructuralmente, lee su configuración de `settings`, y el prompt
+seguro (`build_prompt`) ya está escrito; `AI_PROVIDER` selecciona el provider.
+El Bloque 5.2 implementa la llamada real (con timeouts, reintentos y manejo de
+errores) dentro de `generate` — ver
+[Decisiones técnicas — Bloque 5.2](#decisiones-técnicas--bloque-52).
+
+**Limitaciones conocidas:** no hay regeneración (una semana = una recomendación,
+`409` si ya existe); no hay paginación ni endpoint de historial completo (solo
+`latest`); y la recomendación se congela al generarse (no se recalcula si los
+logs cambian después).
+
 ## Criterios de aceptación de este bloque
 
 - [x] `uv sync` instala todo sin errores.
@@ -1299,16 +1641,45 @@ logs crudos.
 - [x] Incluye `data_quality` con `is_ready_for_ai_recommendation` calculado con
       la regla explícita (≥1 workout log, ≥3 nutrition logs, ≥1 medición).
 - [x] Un usuario no ve datos semanales de otro usuario.
-- [x] `uv run pytest` pasa (48 tests: health + auth + workout plans + workout
-      logs + nutrition logs + body measurements + weekly summary, todos en
-      verde).
+- [x] Existe el modelo `AIRecommendation` con migración Alembic aplicada
+      (FK a `users`, índices en `user_id` y `week_start`, unique
+      `user_id + week_start + week_end`).
+- [x] `POST /recommendations/weekly` está protegido; el cliente solo envía
+      `week_start`, `week_end` se calcula en backend y `user_id` sale de
+      `current_user.id`.
+- [x] Usa el weekly summary como input y valida
+      `data_quality.is_ready_for_ai_recommendation`; datos insuficientes → `422`
+      (con `missing_data`).
+- [x] Genera la recomendación con el fake provider en local/tests (sin llamadas
+      reales a Azure OpenAI) y la persiste en base de datos.
+- [x] Duplicado para la misma semana → `409`; JSON inválido del provider → `502`
+      controlado.
+- [x] `GET /recommendations/latest` devuelve la última recomendación del usuario;
+      sin recomendaciones → `404`. Un usuario no ve las de otro.
+- [x] La recomendación incluye `safety_notes` y el prompt evita consejos médicos
+      / diagnósticos.
+- [x] Variables `AI_PROVIDER` + `AZURE_OPENAI_*` en `.env.example`; el fake
+      provider funciona sin ellas.
+- [x] `uv run pytest` pasa (58 tests: los 48 previos + 10 de recomendaciones,
+      todos en verde).
 - [x] `uv run ruff check .` limpio.
 - [x] Sin secretos hardcodeados; todo vía `.env` / `pydantic-settings`.
-- [x] Capas separadas (`routes` / `services` / `models` / `schemas` / `db` / `core`).
+- [x] Capas separadas (`routes` / `services` / `models` / `schemas` / `db` / `core`),
+      con la IA aislada en `services/ai_provider.py`.
+- [x] `openai` agregado como dependencia; `AzureOpenAIProvider.generate` usa
+      `AsyncAzureOpenAI` para llamar al deployment configurado.
+- [x] `AI_PROVIDER=fake` sigue sin requerir credenciales; `AI_PROVIDER=azure`
+      exige las 4 variables `AZURE_OPENAI_*` (falla con `503` si falta alguna).
+- [x] Se pide `response_format={"type": "json_object"}` y la respuesta se
+      valida con `AIGeneratedContent` antes de persistir.
+- [x] Timeout de Azure → `503`; error de API/SDK → `502`; JSON inválido → `502`
+      (sin exponer detalles internos del SDK ni secretos).
+- [x] Tests de `AzureOpenAIProvider` inyectan un cliente fake; ninguna llamada
+      real a Azure en la suite.
+- [x] `uv run pytest` pasa (66 tests) y `uv run ruff check .` limpio.
 
 ## Siguiente paso recomendado
 
-**Bloque 5.1 — AI Weekly Recommendation Service**: usará `GET /weekly-summary`
-como base para generar recomendaciones semanales con IA (Azure OpenAI),
-revisando primero `data_quality.is_ready_for_ai_recommendation` y manteniendo
-reglas de seguridad para evitar consejos médicos o diagnósticos.
+**Bloque 4.1 — Docker Production API Image**: preparará el backend para deploy
+real en Azure Container Apps (Dockerfile de producción, variables de entorno,
+health check, comando de arranque y documentación local vs cloud).
