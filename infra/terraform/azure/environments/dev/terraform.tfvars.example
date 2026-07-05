@@ -1,0 +1,22 @@
+project_name = "fittrack-ai"
+environment  = "dev"
+location     = "eastus"
+owner        = "your-name"
+cost_center  = "portfolio"
+
+# Do not set a real subscription_id here. Export ARM_SUBSCRIPTION_ID instead,
+# or rely on `az login` / `az account set --subscription "<id>"`.
+# subscription_id = null
+
+# All create_* flags default to false. Every one below is off so that
+# `terraform plan`/`apply` against this example file creates zero billable
+# resources. Flip one on only when a block explicitly authorizes it.
+create_resource_group             = false
+create_acr                        = false
+create_key_vault                  = false
+create_managed_identities         = false
+create_networking                 = false
+create_postgres                   = false
+create_container_apps_environment = false
+create_container_apps             = false
+create_monitoring                 = false

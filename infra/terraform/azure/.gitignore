@@ -1,0 +1,16 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# .terraform.lock.hcl is intentionally NOT ignored — it is committed for
+# reproducible provider installs across machines and CI. See README.md
+# ("State and reproducibility" section) for the rationale.

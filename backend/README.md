@@ -299,9 +299,18 @@ actualización de imagen y troubleshooting— está en:
 - [`docs/azure-container-apps-deploy.md`](../docs/azure-container-apps-deploy.md)
 
 Notas clave: el primer deploy usa un `DATABASE_URL` *placeholder* (el motor es lazy,
-así que `/health` responde sin base de datos real); la base gestionada llega en el
-**Bloque 4.3 — Azure Database for PostgreSQL**. No se incluye todavía Terraform,
+así que `/health` responde sin base de datos real); una base de datos gestionada real
+llegará en un bloque posterior una vez exista Terraform. No se incluye todavía
 GitHub Actions, CI/CD, Blob Storage ni Application Insights.
+
+## Infraestructura como código — Terraform (Bloque 4.3)
+
+A partir de este bloque, la infraestructura de Azure deja de crearse manualmente con `az`
+CLI y se declara con Terraform. El Bloque 4.3 es solo la *foundation* (provider, variables,
+naming conventions, tags, outputs) — no crea ningún recurso real ni ejecuta `terraform
+apply`. Guía completa:
+
+- [`infra/terraform/azure/README.md`](../infra/terraform/azure/README.md)
 
 ## Migraciones (Alembic)
 
