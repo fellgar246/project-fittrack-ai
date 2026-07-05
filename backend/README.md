@@ -287,6 +287,22 @@ Apps inyecta env vars / secrets), no contiene secretos, corre como no-root, expo
 `/health` para probes, y deja las migraciones como paso separado. El siguiente bloque
 (**4.2**) publicará la imagen en Azure Container Registry y planificará el deploy.
 
+## Deploy a Azure Container Apps (Bloque 4.2)
+
+Este bloque publica la imagen en **Azure Container Registry (ACR)** y ejecuta la API
+en **Azure Container Apps (ACA)** con ingress externo en el puerto `8000`, variables
+de entorno y secretos inyectados en runtime, pull desde ACR vía **Managed Identity**,
+y health check en `GET /health`. La guía completa —naming, comandos `az`
+reproducibles (`build → push → deploy → verify`), secrets vs env vars, logs,
+actualización de imagen y troubleshooting— está en:
+
+- [`docs/azure-container-apps-deploy.md`](../docs/azure-container-apps-deploy.md)
+
+Notas clave: el primer deploy usa un `DATABASE_URL` *placeholder* (el motor es lazy,
+así que `/health` responde sin base de datos real); la base gestionada llega en el
+**Bloque 4.3 — Azure Database for PostgreSQL**. No se incluye todavía Terraform,
+GitHub Actions, CI/CD, Blob Storage ni Application Insights.
+
 ## Migraciones (Alembic)
 
 Alembic está configurado en modo async (`alembic init -t async`) y usa el mismo
