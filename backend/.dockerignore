@@ -1,7 +1,33 @@
-.venv
-__pycache__
-*.pyc
-.pytest_cache
-.ruff_cache
+# Git
+.git/
+.gitignore
+
+# Python bytecode / caches
+__pycache__/
+**/__pycache__/
+*.py[cod]
+
+# Tooling caches and local virtualenv
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Secrets / environment files (NEVER bake these into the image)
 .env
-.git
+.env.*
+
+# Tests are not needed in the production image
+app/tests/
+
+# Docs & project meta (not needed at runtime)
+README.md
+docs/
+
+# Docker build files (not needed inside the image)
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# OS junk
+.DS_Store

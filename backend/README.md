@@ -1,6 +1,8 @@
 # FitTrack AI — Backend
 
-API backend de FitTrack AI. Bloque actual: **5.2 — Azure OpenAI Integration**.
+API backend de FitTrack AI. Último bloque de infraestructura: **4.1 — Docker
+Production API Image** (ver [Docker — imagen de producción](#docker--imagen-de-producción-bloque-41)).
+Último bloque de features: **5.2 — Azure OpenAI Integration**.
 
 ## Stack
 
@@ -192,6 +194,98 @@ docker compose up -d
 El servicio `api` usa internamente el hostname `db` para conectarse a Postgres
 (override de `DATABASE_URL` dentro de `docker-compose.yml`), independientemente
 de lo que tenga `.env` para uso desde el host.
+
+## Docker — imagen de producción (Bloque 4.1)
+
+Este bloque prepara el backend para correr como una **imagen Docker de producción**,
+lista para publicarse luego en Azure Container Registry y desplegarse en Azure
+Container Apps. Todavía **no** despliega nada en Azure — solo deja la imagen.
+
+La documentación completa (diseño, decisiones, variables, troubleshooting,
+limitaciones) está en [`docs/docker-production.md`](../docs/docker-production.md).
+
+### Dev local vs imagen de producción
+
+| | Dev local | Imagen de producción |
+|---|---|---|
+| Cómo corre la API | `uv run uvicorn ... --reload` en el **host** | `uvicorn` dentro del **contenedor** |
+| Config | archivo `.env` (pydantic-settings) | **solo variables de entorno en runtime** |
+| `uv` en runtime | sí (en el host) | **no** (se elimina del stage runtime) |
+| Usuario | tu usuario del host | usuario no-root `app` (uid 999) |
+| Dependencias | `uv sync` (incluye grupo dev) | `uv sync --frozen --no-dev` (locked, sin dev) |
+
+El `.env` se usa **solo** para comandos en el host (`uv run ...`); nunca se copia a la
+imagen (está en `.gitignore` y en `.dockerignore`).
+
+### Construir la imagen
+
+```bash
+docker build -t fittrack-ai-api:local .
+```
+
+### Correr la imagen
+
+Requiere `DATABASE_URL` y `JWT_SECRET_KEY` en runtime; el resto tiene defaults
+seguros (`AI_PROVIDER=fake` no necesita credenciales de Azure).
+
+```bash
+docker run --rm \
+  --name fittrack-ai-api \
+  -p 8000:8000 \
+  --env-file .env \
+  fittrack-ai-api:local
+```
+
+O pasando variables explícitas en runtime (sin `.env`):
+
+```bash
+docker run --rm --name fittrack-ai-api -p 8000:8000 \
+  -e DATABASE_URL='postgresql+psycopg://fittrack:fittrack@host.docker.internal:5433/fittrack' \
+  -e JWT_SECRET_KEY='use-a-long-random-value' \
+  -e AI_PROVIDER='fake' \
+  fittrack-ai-api:local
+```
+
+### Probar `/health`
+
+```bash
+curl http://localhost:8000/health
+# {"status":"ok","service":"fittrack-ai-api","version":"0.1.0"}
+```
+
+### Por qué NO se corren migraciones al arrancar el contenedor
+
+Las migraciones **no** se ejecutan en el entrypoint, a propósito:
+
+- En producción, cambiar el esquema debe ser un **paso controlado y separado**, no un
+  efecto secundario de que un proceso arranque.
+- Con múltiples réplicas (autoscale en Container Apps), varias instancias intentarían
+  migrar a la vez → condición de carrera.
+- Mantenerlas separadas permite documentarlas como operación previa / job dedicado en
+  el deploy de Azure.
+
+Se corren de forma explícita, con la **misma imagen** (`alembic` es dependencia de
+runtime y está en el `PATH`):
+
+```bash
+uv run alembic upgrade head                      # en el host (Postgres en localhost:5433)
+docker compose run --rm api alembic upgrade head # vía la imagen (Postgres en db:5432)
+```
+
+### Qué NO incluye todavía este bloque
+
+- No publica la imagen en Azure Container Registry.
+- No despliega en Azure Container Apps.
+- No incluye Terraform, GitHub Actions, Azure Database, Blob Storage ni App Insights.
+- No corre migraciones automáticamente al startup.
+- `/health` es solo liveness (no verifica la base de datos).
+
+### Cómo prepara Azure Container Apps
+
+La imagen lee **toda** su configuración desde variables de entorno (igual que Container
+Apps inyecta env vars / secrets), no contiene secretos, corre como no-root, expone
+`/health` para probes, y deja las migraciones como paso separado. El siguiente bloque
+(**4.2**) publicará la imagen en Azure Container Registry y planificará el deploy.
 
 ## Migraciones (Alembic)
 
