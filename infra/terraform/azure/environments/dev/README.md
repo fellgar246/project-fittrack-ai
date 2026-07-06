@@ -31,6 +31,11 @@ terraform plan -var-file="terraform.acr.example.tfvars"
   `module.acr[0].azurerm_container_registry.this`; todos los demás módulos siguen detrás de sus
   flags `create_*` en `false`. Ver la sección "Block 4.8" en [`../../README.md`](../../README.md)
   para el detalle completo, incluyendo los comandos futuros de Docker login/tag/push.
+- **Bloque 4.9**: se publicó la imagen productiva del backend en el ACR del Bloque 4.8:
+  `acrfittrackaidevdev01.azurecr.io/fittrack-api:block-4.9`. Sólo Docker build/tag/push y
+  verificación con Azure CLI — el Terraform state no cambió (siguen siendo exactamente los mismos
+  dos recursos). Ver la sección "Block 4.9" en [`../../README.md`](../../README.md) para el
+  detalle completo, incluyendo la desviación del smoke test respecto al plan original.
 - `terraform plan` requiere una sesión de Azure activa (`az login`) o `ARM_SUBSCRIPTION_ID`
   exportada — el provider `azurerm` construye un authorizer al configurarse aunque los flags
   `create_*` estén en `false` y no vaya a crear ningún recurso. `terraform validate` y

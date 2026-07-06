@@ -227,6 +227,57 @@ deployment (env vars + secrets).
 
 ---
 
+## Build and push to ACR (Block 4.9)
+
+Status: **completed**. Published image:
+
+```text
+acrfittrackaidevdev01.azurecr.io/fittrack-api:block-4.9
+```
+
+```bash
+# Login (admin user is disabled on the ACR — uses the operator's az CLI identity)
+az acr login --name acrfittrackaidevdev01
+
+# Build the production image (from the repo root)
+docker build -f backend/Dockerfile -t fittrack-api:local backend
+
+# Tag for ACR and push
+docker tag fittrack-api:local acrfittrackaidevdev01.azurecr.io/fittrack-api:block-4.9
+docker push acrfittrackaidevdev01.azurecr.io/fittrack-api:block-4.9
+
+# Verify
+az acr repository list --name acrfittrackaidevdev01 -o table
+az acr repository show-tags --name acrfittrackaidevdev01 --repository fittrack-api -o table
+```
+
+The tag is the block name (`block-4.9`), not `latest` — this keeps a clear trail of which
+block published which image.
+
+**Smoke test note:** the image requires `JWT_SECRET_KEY` at boot (see
+[Environment variables](#environment-variables)) and has no `aiosqlite` driver installed
+(only `psycopg`, for Postgres). A local smoke test therefore uses a syntactically valid
+Postgres DSN instead of a SQLite one — `/health` never opens a database connection, so the
+container boots and answers without a real Postgres running:
+
+```bash
+docker run --rm -d --name fittrack-smoke -p 8000:8000 \
+  -e DATABASE_URL="postgresql+psycopg://u:p@localhost:5432/db" \
+  -e JWT_SECRET_KEY="smoke-test-secret" \
+  -e AI_PROVIDER="fake" \
+  fittrack-api:local
+
+curl http://localhost:8000/health
+# {"status":"ok","service":"fittrack-ai-api","version":"0.1.0"}
+
+docker stop fittrack-smoke
+```
+
+No Container App, Managed Identity, or `AcrPull` role assignment exists yet — this block only
+publishes the artifact. Terraform state is unchanged by this block.
+
+---
+
 ## Troubleshooting
 
 | Symptom | Cause | Fix |

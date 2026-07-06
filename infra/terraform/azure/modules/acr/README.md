@@ -56,3 +56,12 @@ See [`../../README.md`](../../README.md) for the plan scenarios and
 Block 4.9. `AcrPull` role assignment is not configured yet; it requires a Managed Identity
 that does not exist yet. See the "Block 4.8" section in
 [`../../README.md`](../../README.md) for the full apply output and verification commands.
+
+## Block 4.9 scope
+
+The first real image was pushed to this registry: `fittrack-api:block-4.9`
+(`acrfittrackaidevdev01.azurecr.io/fittrack-api:block-4.9`), via `az acr login` +
+`docker push` — no Terraform changes. Verified with `az acr repository list` and
+`az acr repository show-tags`. `AcrPull` role assignment is still not configured; it still
+requires a Managed Identity that does not exist yet. See the "Block 4.9" section in
+[`../../README.md`](../../README.md) for the full command sequence.

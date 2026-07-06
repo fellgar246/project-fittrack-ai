@@ -727,9 +727,121 @@ etapa no se ha hecho push de ninguna imagen todavía.
 
 `terraform destroy` **no se ha ejecutado** — el ACR sigue activo.
 
+## Block 4.9 — Docker Build, Tag & Push to ACR
+
+Status: **completed**
+
+Published image:
+
+```text
+acrfittrackaidevdev01.azurecr.io/fittrack-api:block-4.9
+```
+
+Sin cambios de infraestructura: `terraform state list` sigue mostrando exactamente los mismos
+dos recursos del Bloque 4.8 (`module.resource_group[0]` y `module.acr[0]`); no se ejecutó
+`terraform apply` ni `terraform destroy`.
+
+Por qué el push se separa de la creación del ACR: mantiene los cambios auditables — la
+infraestructura (registro) y el artefacto (imagen) evolucionan en commits/bloques distintos.
+Por qué `az acr login` en vez de admin user: `admin_enabled=false` en el ACR, así que el acceso
+usa la identidad de Azure CLI del operador, no credenciales estáticas. Por qué el tag
+`block-4.9` en vez de sólo `latest`: da trazabilidad exacta de qué bloque publicó qué imagen;
+`latest` por sí solo es ambiguo. Por qué no se crea Container Apps todavía: primero debe existir
+una imagen verificable en el registro. Por qué no se configura `AcrPull` todavía: requiere una
+Managed Identity que se creará en un bloque posterior.
+
+Desviación respecto al smoke test originalmente planeado: el plan proponía
+`DATABASE_URL="sqlite+aiosqlite:///:memory:"`, pero `aiosqlite` no es una dependencia del backend
+(la imagen productiva sólo trae el driver `psycopg`), y `JWT_SECRET_KEY` es una variable
+requerida por `app/core/config.py` que el plan original no incluía. Se usó en su lugar una URL
+con dialecto Postgres (`postgresql+psycopg://u:p@localhost:5432/db`) más `JWT_SECRET_KEY`; como
+`/health` no abre conexión a la base de datos (el engine de SQLAlchemy es lazy), la app arranca
+y responde sin necesitar un Postgres real.
+
+### Comandos ejecutados
+
+```bash
+cd infra/terraform/azure/environments/dev
+terraform output -raw acr_name
+terraform output -raw acr_login_server
+terraform output -raw resource_group_name
+
+az acr show --name "$(terraform output -raw acr_name)" \
+  --resource-group "$(terraform output -raw resource_group_name)" \
+  --query "{name:name, sku:sku.name, adminUserEnabled:adminUserEnabled, loginServer:loginServer}" \
+  -o json
+
+az acr login --name "$(terraform output -raw acr_name)"
+
+cd ../../../../..   # raíz del repo
+docker build -f backend/Dockerfile -t fittrack-api:local backend
+docker images | grep fittrack-api
+
+docker run --rm -d --name fittrack-smoke -p 8000:8000 \
+  -e DATABASE_URL="postgresql+psycopg://u:p@localhost:5432/db" \
+  -e JWT_SECRET_KEY="smoke-test-secret" \
+  -e AI_PROVIDER="fake" \
+  fittrack-api:local
+curl -s http://localhost:8000/health
+docker stop fittrack-smoke
+
+docker tag fittrack-api:local acrfittrackaidevdev01.azurecr.io/fittrack-api:block-4.9
+docker push acrfittrackaidevdev01.azurecr.io/fittrack-api:block-4.9
+
+az acr repository list --name "$(terraform output -raw acr_name)" -o table
+az acr repository show-tags --name "$(terraform output -raw acr_name)" \
+  --repository fittrack-api -o table
+
+cd infra/terraform/azure/environments/dev
+terraform state list
+terraform plan -var-file="terraform.acr.example.tfvars"
+```
+
+### Resultado del Docker build
+
+Build exitoso (mayoría de capas cacheadas desde el Bloque 4.1):
+`naming to docker.io/library/fittrack-api:local done`. Imagen local confirmada con
+`docker images` (261MB).
+
+### Resultado del smoke test
+
+```json
+{"status":"ok","service":"fittrack-ai-api","version":"0.1.0"}
+```
+
+HTTP 200, sin necesitar un Postgres real corriendo (el healthcheck del contenedor sondea el
+mismo endpoint).
+
+### Resultado del ACR login
+
+```text
+Login Succeeded
+```
+
+### Resultado del Docker push
+
+```text
+block-4.9: digest: sha256:f9ee45d4651f8b89a698c615ef3dc7c62ea76496e4812ee1ab0a9bbe9403a04d size: 1785
+```
+
+### Verificación
+
+- `az acr repository list` → `fittrack-api`.
+- `az acr repository show-tags --repository fittrack-api` → `block-4.9`.
+- `terraform state list` → sólo `module.resource_group[0].azurerm_resource_group.this` y
+  `module.acr[0].azurerm_container_registry.this` (sin cambios respecto al Bloque 4.8).
+- `terraform plan -var-file="terraform.acr.example.tfvars"` → `No changes. Your infrastructure
+  matches the configuration.`
+- Backend: `uv run ruff check .` → `All checks passed!`. `uv run pytest` corrió contra el
+  Postgres local de `backend/docker-compose.yml` (servicio `db`, puerto 5433) → `66 passed`.
+
+**No se ejecutó `terraform apply` ni `terraform destroy` en este bloque. No se creó Container
+Apps, Managed Identity, AcrPull, Key Vault, PostgreSQL en Azure, networking ni monitoring.**
+
 ## Siguiente paso recomendado
 
-**Bloque 4.9 — Docker Build, Tag & Push to ACR**: usar el ACR creado en el Bloque 4.8, hacer login
-con `az acr login`, construir la imagen productiva del backend (`backend/Dockerfile`), etiquetarla
-con el login server de ACR, hacer push manual, y verificar con `az acr repository list` que la
-imagen existe en ACR. No crear Container Apps ni Managed Identity todavía.
+**Bloque 4.10 — Terraform Container Apps Environment Module Plan**: implementar el módulo
+`monitoring`/`container_apps_environment` (Log Analytics Workspace + Container Apps Environment)
+sólo como `terraform plan`, sin apply. Mantener `create_monitoring=false` y
+`create_container_apps_environment=false` por defecto. No crear Container App ni desplegar la
+API todavía.
