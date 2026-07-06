@@ -32,12 +32,21 @@ Este documento cubre cuatro bloques:
   resultado con Azure CLI, y documenta (sin ejecutar) los comandos futuros de `az acr login` /
   `docker build` / `docker tag` / `docker push`. Ver la sección
   [Block 4.8](#block-48--acr-apply) más abajo.
+- **Bloque 4.9 — Docker Build, Tag & Push to ACR**: publica la imagen productiva del backend
+  (`fittrack-api:block-4.9`) en el ACR del Bloque 4.8. Sin cambios de Terraform. Ver la sección
+  [Block 4.9](#block-49--docker-build-tag--push-to-acr) más abajo.
+- **Bloque 4.10 — Terraform Container Apps Environment Module Plan**: convierte
+  `modules/monitoring` y `modules/container_apps_environment` de placeholder a módulos reales
+  (Log Analytics Workspace + Container Apps Environment) y los conecta en `environments/dev`
+  detrás de `create_monitoring` y `create_container_apps_environment` (ambos default `false`).
+  Solo planificación — no ejecuta `terraform apply`. Ver la sección
+  [Block 4.10](#block-410--terraform-container-apps-environment-module-plan) más abajo.
 
-**Los bloques 4.3, 4.4, 4.5 y 4.7 no crean ningún recurso de Azure ni ejecutan `terraform apply`.**
-Con todas las banderas `create_*` en `false` (default de `terraform.tfvars.example`), `terraform
-plan` no agrega ni cambia ningún recurso — solo calcula los outputs informativos. Los bloques 4.6
-y 4.8 son, hasta ahora, los únicos que han ejecutado un `apply` real: el 4.6 creó el Resource
-Group, y el 4.8 el Azure Container Registry.
+**Los bloques 4.3, 4.4, 4.5, 4.7 y 4.10 no crean ningún recurso de Azure ni ejecutan `terraform
+apply`.** Con todas las banderas `create_*` en `false` (default de `terraform.tfvars.example`),
+`terraform plan` no agrega ni cambia ningún recurso — solo calcula los outputs informativos. Los
+bloques 4.6 y 4.8 son, hasta ahora, los únicos que han ejecutado un `apply` real: el 4.6 creó el
+Resource Group, y el 4.8 el Azure Container Registry.
 
 ## 2. Estructura creada
 
@@ -56,6 +65,7 @@ infra/terraform/azure/
 │       ├── terraform.tfvars.example
 │       ├── terraform.resource-group.example.tfvars  # previsualiza sólo el Resource Group
 │       ├── terraform.acr.example.tfvars              # previsualiza Resource Group + ACR
+│       ├── terraform.container-apps-env.example.tfvars  # + Monitoring + Container Apps Env
 │       └── README.md             # quickstart del entorno dev
 └── modules/
     ├── README.md                 # overview de la capa de módulos
@@ -65,9 +75,9 @@ infra/terraform/azure/
     ├── managed_identities/       # placeholder
     ├── networking/                # placeholder
     ├── postgres_flexible/        # placeholder
-    ├── container_apps_environment/  # placeholder
+    ├── container_apps_environment/  # módulo real (main/variables/outputs.tf)
     ├── container_apps/           # placeholder
-    └── monitoring/                # placeholder
+    └── monitoring/                # módulo real (main/variables/outputs.tf)
 ```
 
 Ver [`modules/README.md`](modules/README.md) para el detalle de cada módulo, su estado
@@ -134,9 +144,11 @@ provider "azurerm" {
 | `create_managed_identities` | bool | `false` | Planeado — `modules/managed_identities` es placeholder. |
 | `create_networking` | bool | `false` | Planeado — `modules/networking` es placeholder. |
 | `create_postgres` | bool | `false` | Planeado — `modules/postgres_flexible` es placeholder. |
-| `create_container_apps_environment` | bool | `false` | Planeado — `modules/container_apps_environment` es placeholder. |
+| `create_container_apps_environment` | bool | `false` | Habilita `module.container_apps_environment`. Requiere `create_resource_group=true` y `create_monitoring=true` (validado). |
 | `create_container_apps` | bool | `false` | Planeado — `modules/container_apps` es placeholder. |
-| `create_monitoring` | bool | `false` | Planeado — `modules/monitoring` es placeholder. |
+| `create_monitoring` | bool | `false` | Habilita `module.monitoring`. Requiere `create_resource_group=true` (validado). |
+| `log_analytics_sku` | string | `"PerGB2018"` | `Free` o `PerGB2018`. |
+| `log_analytics_retention_in_days` | number | `30` | Entre 30 y 730 días. |
 
 ## 5.1. Modules layer
 
@@ -403,6 +415,17 @@ la reproducibilidad pesa más que la simplicidad de tener un archivo menos. Por 
 17. **Push de imágenes Docker separado del `apply` de ACR (Bloque 4.9)**: crear el registro
     (infraestructura) y poblarlo con imágenes (artefactos) son pasos independientes y auditables
     por separado.
+18. **Log Analytics antes que Container Apps Environment (Bloque 4.10)**: ACA requiere el
+    workspace en su creación (`log_analytics_workspace_id`); por eso `create_container_apps_environment`
+    exige `create_monitoring=true`, no sólo `create_resource_group=true`.
+19. **`container_apps_environment` usa el resource ID del workspace, no shared key**: el recurso
+    `azurerm_container_app_environment` no tiene ningún argumento de shared key — el provider
+    gestiona la autenticación internamente. `modules/monitoring` sí expone `primary_shared_key`
+    (sensible) para uso futuro, pero no se pasa a `container_apps_environment` ni se expone como
+    output del entorno.
+20. **`terraform apply` de Monitoring/Container Apps Environment diferido al Bloque 4.11**: mismo
+    patrón que ACR (Bloques 4.7/4.8) — separar implementación validada por `plan` de la creación
+    real de recursos.
 
 ## Precheck de Azure CLI (sin crear recursos)
 
@@ -838,10 +861,112 @@ block-4.9: digest: sha256:f9ee45d4651f8b89a698c615ef3dc7c62ea76496e4812ee1ab0a9b
 **No se ejecutó `terraform apply` ni `terraform destroy` en este bloque. No se creó Container
 Apps, Managed Identity, AcrPull, Key Vault, PostgreSQL en Azure, networking ni monitoring.**
 
+## Block 4.10 — Terraform Container Apps Environment Module Plan
+
+Status: **completed** (implementación y planificación; sin `apply`).
+
+Qué es Log Analytics Workspace: el destino de logs/métricas de Azure Monitor; Container Apps
+Environment lo requiere para observabilidad desde el primer momento. Qué es Container Apps
+Environment: el runtime compartido donde vivirán las Container Apps (bloques futuros) — análogo a
+un "clúster" lógico de Container Apps.
+
+Por qué Log Analytics antes del Environment: `azurerm_container_app_environment` requiere
+`log_analytics_workspace_id` en su creación. Por qué el Environment antes de la Container App
+real: primero se valida el runtime compartido; la Container App llega después de tener el
+Environment probado. Por qué sólo `plan` y no `apply`: separa deliberadamente la implementación
+del módulo de la creación real de recursos, igual que en los Bloques 4.4/4.5 y 4.7.
+
+**Desviación intencional respecto al diseño inicialmente esbozado:** `azurerm_container_app_environment`
+toma `log_analytics_workspace_id` como el **resource ID** del workspace (`module.monitoring[0].id`)
+— no existe ningún argumento de shared key en ese recurso; el provider maneja la autenticación
+internamente. Por eso `modules/container_apps_environment` no recibe ni `workspace_id`
+(customer ID) ni `primary_shared_key` como inputs. El módulo `monitoring` sí expone ambos como
+outputs (`workspace_id`, `primary_shared_key` sensible) para uso futuro, pero **no** se exponen
+como outputs del entorno `dev`. Confirmado corriendo `terraform validate` contra `azurerm v4.80.0`.
+
+Cambios de archivos:
+
+- `modules/monitoring/{main,variables,outputs}.tf` — nuevo módulo real; crea únicamente
+  `azurerm_log_analytics_workspace`.
+- `modules/container_apps_environment/{main,variables,outputs}.tf` — nuevo módulo real; crea
+  únicamente `azurerm_container_app_environment`.
+- `environments/dev/variables.tf` — `create_monitoring` con validación cruzada
+  (`create_resource_group`), `create_container_apps_environment` con dos validaciones cruzadas
+  (`create_resource_group` y `create_monitoring`), más `log_analytics_sku` y
+  `log_analytics_retention_in_days`.
+- `environments/dev/main.tf` — `module "monitoring"` y `module "container_apps_environment"`
+  gateados por sus flags respectivos.
+- `environments/dev/outputs.tf` — `monitoring_enabled`, `log_analytics_workspace_name`,
+  `log_analytics_workspace_id`, `container_apps_environment_enabled`,
+  `container_apps_environment_name`, `container_apps_environment_id`,
+  `container_apps_environment_default_domain` (todos seguros con los módulos desactivados).
+  `primary_shared_key` no se expone como output del entorno.
+- `environments/dev/terraform.container-apps-env.example.tfvars` — nuevo, previsualiza Resource
+  Group + ACR + Monitoring + Container Apps Environment.
+- `environments/dev/locals.tf` — sin cambios (`log_analytics_workspace` y
+  `container_app_env_name` ya existían desde el Bloque 4.3).
+
+Comandos de validación:
+
+```bash
+cd infra/terraform/azure/environments/dev
+terraform fmt -recursive -check
+terraform init
+terraform validate
+
+# Sólo Resource Group + ACR (ya en state): sin cambios de recursos
+terraform plan -var-file="terraform.acr.example.tfvars"
+
+# + Monitoring + Container Apps Environment: 2 recursos nuevos
+terraform plan -var-file="terraform.container-apps-env.example.tfvars"
+```
+
+### Resultados observados
+
+`terraform fmt -recursive -check`, `terraform init` y `terraform validate` (Terraform v1.13.5,
+`azurerm` v4.80.0) pasaron sin errores.
+
+Plan con `terraform.acr.example.tfvars` (Resource Group + ACR ya en state): `0 to add, 0 to
+change, 0 to destroy` — solo aparecen nuevos valores de output (`monitoring_enabled = false`,
+`container_apps_environment_enabled = false`, etc.) porque esos outputs no existían antes en el
+state.
+
+Plan con `terraform.container-apps-env.example.tfvars`:
+
+```text
+# module.container_apps_environment[0].azurerm_container_app_environment.this will be created
+  + location                   = "eastus"
+  + log_analytics_workspace_id = (known after apply)
+  + name                       = "cae-fittrack-ai-dev"
+  + resource_group_name        = "rg-fittrack-ai-dev"
+
+# module.monitoring[0].azurerm_log_analytics_workspace.this will be created
+  + location            = "eastus"
+  + name                = "log-fittrack-ai-dev"
+  + resource_group_name = "rg-fittrack-ai-dev"
+  + retention_in_days   = 30
+  + sku                 = "PerGB2018"
+
+Plan: 2 to add, 0 to change, 0 to destroy.
+```
+
+Únicos recursos nuevos: `module.monitoring[0].azurerm_log_analytics_workspace.this` y
+`module.container_apps_environment[0].azurerm_container_app_environment.this`. No aparece
+`azurerm_container_app`, `azurerm_user_assigned_identity`, `azurerm_role_assignment`,
+`azurerm_key_vault`, `azurerm_postgresql_flexible_server`, `azurerm_virtual_network` ni
+`azurerm_subnet`.
+
+Backend: `uv run ruff check .` → `All checks passed!`. Docker estaba activo; se levantó el
+Postgres de `backend/docker-compose.yml` (servicio `db`) y `uv run pytest` → `66 passed`. No se
+modificó código de backend en este bloque.
+
+**No se ejecutó `terraform apply` en este bloque. No se creó Log Analytics Workspace ni Container
+Apps Environment reales. No se creó Container App, Managed Identity, AcrPull, Key Vault,
+PostgreSQL ni networking privado.**
+
 ## Siguiente paso recomendado
 
-**Bloque 4.10 — Terraform Container Apps Environment Module Plan**: implementar el módulo
-`monitoring`/`container_apps_environment` (Log Analytics Workspace + Container Apps Environment)
-sólo como `terraform plan`, sin apply. Mantener `create_monitoring=false` y
-`create_container_apps_environment=false` por defecto. No crear Container App ni desplegar la
-API todavía.
+**Bloque 4.11 — Terraform Container Apps Environment Apply**: ejecutar `terraform apply`
+autorizado para crear únicamente el Log Analytics Workspace y el Container Apps Environment,
+verificar con Azure CLI, y confirmar los outputs reales (incluido `default_domain`). No crear
+Container App ni desplegar la API todavía.

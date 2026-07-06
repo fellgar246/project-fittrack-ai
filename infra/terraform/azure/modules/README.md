@@ -15,8 +15,8 @@ feature flags, which ones actually create resources.
 | [`key_vault`](key_vault/README.md) | Placeholder | 4.8 |
 | [`networking`](networking/README.md) | Placeholder | 4.9 |
 | [`postgres_flexible`](postgres_flexible/README.md) | Placeholder | 4.10 |
-| [`monitoring`](monitoring/README.md) | Placeholder | 4.11 |
-| [`container_apps_environment`](container_apps_environment/README.md) | Placeholder | 4.12 |
+| [`monitoring`](monitoring/README.md) | **Implemented** (gated by `create_monitoring`, default `false`) | 4.10 |
+| [`container_apps_environment`](container_apps_environment/README.md) | **Implemented** (gated by `create_container_apps_environment`, default `false`) | 4.10 |
 | [`container_apps`](container_apps/README.md) | Placeholder | 4.13 |
 
 "Placeholder" means the folder currently contains only a `README.md` describing
@@ -25,6 +25,10 @@ the module's future purpose, inputs, and outputs — no `.tf` files, no resource
 its `create_*` flag is enabled, regardless of whether `terraform apply` has been
 run yet. Block numbers above are indicative planning, not a commitment; they may
 shift as the project evolves.
+
+"Implemented" also means: `monitoring` and `container_apps_environment` were built and
+their `plan` validated in Block 4.10, but `terraform apply` has **not** been run for
+either yet — that is deferred to Block 4.11.
 
 ## Planned module flow
 

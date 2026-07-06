@@ -123,8 +123,18 @@ variable "create_postgres" {
 
 variable "create_container_apps_environment" {
   type        = bool
-  description = "Whether to create the Container Apps environment. Planned for a future block (modules/container_apps_environment is currently a placeholder)."
+  description = "Whether to create the Container Apps environment. Requires create_resource_group=true and create_monitoring=true."
   default     = false
+
+  validation {
+    condition     = !var.create_container_apps_environment || var.create_resource_group
+    error_message = "create_container_apps_environment=true requires create_resource_group=true."
+  }
+
+  validation {
+    condition     = !var.create_container_apps_environment || var.create_monitoring
+    error_message = "create_container_apps_environment=true requires create_monitoring=true."
+  }
 }
 
 variable "create_container_apps" {
@@ -135,6 +145,33 @@ variable "create_container_apps" {
 
 variable "create_monitoring" {
   type        = bool
-  description = "Whether to create the Log Analytics workspace. Planned for a future block (modules/monitoring is currently a placeholder)."
+  description = "Whether to create the Log Analytics workspace. Requires create_resource_group=true."
   default     = false
+
+  validation {
+    condition     = !var.create_monitoring || var.create_resource_group
+    error_message = "create_monitoring=true requires create_resource_group=true."
+  }
+}
+
+variable "log_analytics_sku" {
+  type        = string
+  description = "SKU for the Log Analytics Workspace."
+  default     = "PerGB2018"
+
+  validation {
+    condition     = contains(["Free", "PerGB2018"], var.log_analytics_sku)
+    error_message = "log_analytics_sku must be one of: Free, PerGB2018."
+  }
+}
+
+variable "log_analytics_retention_in_days" {
+  type        = number
+  description = "Log Analytics Workspace retention in days."
+  default     = 30
+
+  validation {
+    condition     = var.log_analytics_retention_in_days >= 30 && var.log_analytics_retention_in_days <= 730
+    error_message = "log_analytics_retention_in_days must be between 30 and 730."
+  }
 }

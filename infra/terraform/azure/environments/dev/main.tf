@@ -33,3 +33,33 @@ module "acr" {
   admin_enabled       = var.acr_admin_enabled
   tags                = local.common_tags
 }
+
+# Block 4.10 — observability for the future Container Apps Environment. Gated behind
+# create_monitoring (default false); its validation in variables.tf guarantees
+# create_resource_group is also true whenever this is enabled.
+module "monitoring" {
+  source = "../../modules/monitoring"
+  count  = var.create_monitoring ? 1 : 0
+
+  workspace_name      = local.log_analytics_workspace
+  resource_group_name = module.resource_group[0].name
+  location            = module.resource_group[0].location
+  sku                 = var.log_analytics_sku
+  retention_in_days   = var.log_analytics_retention_in_days
+  tags                = local.common_tags
+}
+
+# Block 4.10 — shared Container Apps runtime. Gated behind
+# create_container_apps_environment (default false); its validations in variables.tf
+# guarantee create_resource_group and create_monitoring are also true whenever this is
+# enabled, so module.resource_group[0] and module.monitoring[0] are always safe here.
+module "container_apps_environment" {
+  source = "../../modules/container_apps_environment"
+  count  = var.create_container_apps_environment ? 1 : 0
+
+  name                       = local.container_app_env_name
+  resource_group_name        = module.resource_group[0].name
+  location                   = module.resource_group[0].location
+  log_analytics_workspace_id = module.monitoring[0].id
+  tags                       = local.common_tags
+}

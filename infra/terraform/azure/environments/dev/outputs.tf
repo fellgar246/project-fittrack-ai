@@ -57,6 +57,41 @@ output "acr_login_server" {
   value       = one(module.acr[*].login_server)
 }
 
+output "monitoring_enabled" {
+  description = "Whether the Log Analytics Workspace module is enabled."
+  value       = var.create_monitoring
+}
+
+output "log_analytics_workspace_name" {
+  description = "Log Analytics Workspace name when created, otherwise the planned name."
+  value       = coalesce(one(module.monitoring[*].name), local.log_analytics_workspace)
+}
+
+output "log_analytics_workspace_id" {
+  description = "Log Analytics Workspace resource ID when created. Null when disabled."
+  value       = one(module.monitoring[*].id)
+}
+
+output "container_apps_environment_enabled" {
+  description = "Whether the Container Apps Environment module is enabled."
+  value       = var.create_container_apps_environment
+}
+
+output "container_apps_environment_name" {
+  description = "Container Apps Environment name when created, otherwise the planned name."
+  value       = coalesce(one(module.container_apps_environment[*].name), local.container_app_env_name)
+}
+
+output "container_apps_environment_id" {
+  description = "Container Apps Environment ID when created. Null when disabled."
+  value       = one(module.container_apps_environment[*].id)
+}
+
+output "container_apps_environment_default_domain" {
+  description = "Container Apps Environment default domain when created. Null when disabled."
+  value       = one(module.container_apps_environment[*].default_domain)
+}
+
 output "planned_modules" {
   description = "Planned Terraform modules for future Azure services, in dependency order."
   value = [
