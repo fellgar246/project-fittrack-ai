@@ -17,9 +17,24 @@ output "common_tags" {
   value       = local.common_tags
 }
 
+output "resource_group_enabled" {
+  description = "Whether the Resource Group module is enabled."
+  value       = var.create_resource_group
+}
+
+output "resource_group_name" {
+  description = "Resource Group name when created, otherwise the planned name."
+  value       = coalesce(one(module.resource_group[*].name), local.resource_group_name)
+}
+
 output "resource_group_id" {
-  description = "ID of the resource group, if create_resource_group is true. Null otherwise."
+  description = "Resource Group ID when created. Null when disabled."
   value       = one(module.resource_group[*].id)
+}
+
+output "resource_group_location" {
+  description = "Resource Group location when created, otherwise the configured location."
+  value       = coalesce(one(module.resource_group[*].location), var.location)
 }
 
 output "planned_modules" {

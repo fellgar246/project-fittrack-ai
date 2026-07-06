@@ -2,7 +2,7 @@
 
 ## 1. Objetivo
 
-Este documento cubre dos bloques:
+Este documento cubre cuatro bloques:
 
 - **Bloque 4.3 — Terraform Foundation for Azure**: creó la base (provider, variables, naming,
   tags, un único recurso opcional) sin desplegar nada real. Reemplazó el deploy manual vía `az`
@@ -13,10 +13,21 @@ Este documento cubre dos bloques:
   cada servicio de Azure vive (o vivirá) en su propio módulo bajo `modules/`. El primer módulo
   real es `resource_group` (ver [`modules/resource_group/README.md`](modules/resource_group/README.md));
   los otros ocho son placeholders documentados.
+- **Bloque 4.5 — Terraform Resource Group Activation Plan**: prepara la activación controlada del
+  primer recurso real (sin ejecutar `terraform apply`). Agrega
+  `terraform.resource-group.example.tfvars` para previsualizar con `terraform plan` la creación de
+  exactamente 1 recurso (`azurerm_resource_group`), y outputs seguros (`resource_group_enabled`,
+  `resource_group_name`, `resource_group_id`, `resource_group_location`) que no fallan cuando el
+  módulo está desactivado.
+- **Bloque 4.6 — First Terraform Apply: Resource Group Only**: ejecuta el primer `terraform apply`
+  real del proyecto, autorizado y controlado, creando únicamente el Azure Resource Group
+  (`rg-fittrack-ai-dev`). Ver la sección [Block 4.6](#block-46--first-resource-group-apply) más
+  abajo para el detalle completo (comandos, outputs, verificación).
 
-**En ninguno de los dos bloques se crea ningún recurso de Azure ni se ejecuta `terraform apply`.**
-Con todas las banderas `create_*` en `false` (default de `terraform.tfvars.example`), `terraform
-plan` no agrega ni cambia ningún recurso — solo calcula los outputs informativos.
+**Los bloques 4.3, 4.4 y 4.5 no crean ningún recurso de Azure ni ejecutan `terraform apply`.** Con
+todas las banderas `create_*` en `false` (default de `terraform.tfvars.example`), `terraform plan`
+no agrega ni cambia ningún recurso — solo calcula los outputs informativos. El Bloque 4.6 es el
+primero que ejecuta un `apply` real, y lo hace sobre un único recurso (el Resource Group).
 
 ## 2. Estructura creada
 
@@ -33,6 +44,7 @@ infra/terraform/azure/
 │       ├── main.tf               # módulo resource_group (deshabilitado por default)
 │       ├── outputs.tf            # nombres planeados, tags y planned_modules
 │       ├── terraform.tfvars.example
+│       ├── terraform.resource-group.example.tfvars  # previsualiza sólo el Resource Group
 │       └── README.md             # quickstart del entorno dev
 └── modules/
     ├── README.md                 # overview de la capa de módulos
@@ -144,8 +156,9 @@ Cada módulo se activa con su propia bandera `create_<módulo>` (todas en `false
 ## 5.3. Apply policy
 
 `terraform apply` **no se ejecuta** como parte de construir o extender esta estructura. Un
-`apply` real solo ocurre cuando un bloque futuro lo autoriza explícitamente — el primero será
-habilitar `create_resource_group = true` en el Bloque 4.5.
+`apply` real solo ocurre cuando un bloque futuro lo autoriza explícitamente. El primero fue el
+Bloque 4.6, que habilitó `create_resource_group = true` y creó el Resource Group. Las 8 banderas
+restantes siguen en `false`; cada una se activará en su propio bloque futuro.
 
 ## 6. Naming conventions
 
@@ -230,13 +243,50 @@ Valida la sintaxis y coherencia interna del código. **No requiere credenciales 
 ## 14. Cómo correr `terraform plan`
 
 ```bash
+# Escenario 1 — todo apagado
 terraform plan -var-file="terraform.tfvars.example"
+
+# Escenario 2 — sólo el Resource Group (Bloque 4.5)
+terraform plan -var-file="terraform.resource-group.example.tfvars"
 ```
 
-Con `create_resource_group = false` (default), el plan debe mostrar **"No changes"** siempre que
-haya una sesión de Azure activa (`az login`) o `ARM_SUBSCRIPTION_ID` exportada — `azurerm` valida
-credenciales al inicializarse aunque no vaya a crear recursos. Si no hay credenciales, el plan
-falla al configurar el provider; esto es **esperado** en este bloque (ver troubleshooting).
+Con `create_resource_group = false` (default, Escenario 1), el plan debe mostrar **"No changes"**
+siempre que haya una sesión de Azure activa (`az login`) o `ARM_SUBSCRIPTION_ID` exportada —
+`azurerm` valida credenciales al inicializarse aunque no vaya a crear recursos. Si no hay
+credenciales, el plan falla al configurar el provider; esto es **esperado** en este bloque (ver
+troubleshooting).
+
+Con `terraform.resource-group.example.tfvars` (Escenario 2), el plan debe mostrar exactamente
+`Plan: 1 to add, 0 to change, 0 to destroy` y el único recurso planeado debe ser
+`azurerm_resource_group.this` (ningún ACR, Postgres, Container Apps, Key Vault, identidades, VNet
+ni Log Analytics). Desde el Bloque 4.6 este escenario ya fue aplicado (ver más abajo); si vuelves
+a correr este `plan` después del apply, debe mostrar **"No changes"**.
+
+### Revisar outputs
+
+```bash
+terraform output
+```
+
+Con el módulo desactivado, `resource_group_enabled = false`, `resource_group_id = null`, y
+`resource_group_name`/`resource_group_location` caen a los valores planeados (`local.*` /
+`var.location`) en vez de fallar. Con `create_resource_group = true` (Bloque 4.6), reflejan los
+valores reales del recurso creado.
+
+### Destruir el Resource Group
+
+```bash
+terraform destroy -var-file="terraform.resource-group.example.tfvars"
+# o, tras editar el flag a false en el tfvars usado:
+terraform apply -var-file="<tfvars-usado>"
+```
+
+**Borrar el Resource Group borra todos los recursos que existan dentro de él.** Hoy no contiene
+nada más que sí mismo, pero en cuanto se activen módulos futuros (ACR, Postgres, Container Apps,
+...) dentro de este Resource Group, destruirlo los destruye también. Revisar
+`az resource list --resource-group <name>` antes de destruir en un entorno con recursos reales.
+**No se ha ejecutado `terraform destroy`** — el Resource Group creado en el Bloque 4.6 sigue
+activo.
 
 ## 15. Decisión: `.terraform.lock.hcl` se commitea
 
@@ -254,7 +304,8 @@ la reproducibilidad pesa más que la simplicidad de tener un archivo menos. Por 
 
 ## 16. Qué NO hacer todavía
 
-- No ejecutar `terraform apply`.
+- No ejecutar `terraform apply` para ningún módulo más allá de `resource_group` (ya aplicado en
+  el Bloque 4.6).
 - No crear Azure Container Registry, Container Apps, PostgreSQL, Blob Storage ni recursos de
   Azure OpenAI vía Terraform.
 - No configurar remote state.
@@ -262,6 +313,7 @@ la reproducibilidad pesa más que la simplicidad de tener un archivo menos. Por 
 - No configurar GitHub Actions / CI-CD.
 - No commitear `terraform.tfvars`, `*.tfstate` ni ningún secreto.
 - No hardcodear `subscription_id` ni ninguna credencial en archivos `.tf` o `.tfvars`.
+- No ejecutar `terraform destroy` sobre el Resource Group salvo instrucción explícita.
 
 ## 17. Troubleshooting
 
@@ -330,9 +382,104 @@ terraform version
 az version
 ```
 
+## Block 4.6 — First Resource Group Apply
+
+Status: **completed**
+
+Created resources:
+
+- Azure Resource Group (`rg-fittrack-ai-dev`, `eastus`)
+
+Terraform state:
+
+```text
+module.resource_group[0].azurerm_resource_group.this
+```
+
+No other Azure services were created. Las 8 banderas restantes (`create_acr`,
+`create_key_vault`, `create_managed_identities`, `create_networking`, `create_postgres`,
+`create_container_apps_environment`, `create_container_apps`, `create_monitoring`) siguen en
+`false`.
+
+### Comandos ejecutados
+
+```bash
+cd infra/terraform/azure/environments/dev
+export ARM_SUBSCRIPTION_ID="<subscription-id-activa>"   # resuelto vía az login, no hardcodeado
+
+terraform fmt -recursive -check
+terraform init
+terraform validate
+terraform plan -var-file="terraform.resource-group.example.tfvars"
+terraform apply -var-file="terraform.resource-group.example.tfvars"   # confirmado manualmente con "yes"
+```
+
+No se usó `-auto-approve`. No se creó ni commiteó ningún `terraform.tfvars` — se aplicó
+directamente con `terraform.resource-group.example.tfvars` (ya trae `owner="felipe"` y los flags
+correctos), confiando en el `subscription_id` resuelto por el contexto `az login` /
+`ARM_SUBSCRIPTION_ID`.
+
+### Resultado del plan
+
+```text
+Plan: 1 to add, 0 to change, 0 to destroy.
+```
+
+Único recurso planeado: `module.resource_group[0].azurerm_resource_group.this`.
+
+### Resultado del apply
+
+```text
+Apply complete! Resources: 1 added, 0 changed, 0 destroyed.
+```
+
+### Outputs relevantes
+
+```text
+resource_group_enabled  = true
+resource_group_name     = "rg-fittrack-ai-dev"
+resource_group_id       = "/subscriptions/<subscription-id>/resourceGroups/rg-fittrack-ai-dev"
+resource_group_location = "eastus"
+```
+
+### Verificación
+
+- `terraform state list` → únicamente `module.resource_group[0].azurerm_resource_group.this`.
+- `az group show --name "$(terraform output -raw resource_group_name)" -o table` → confirma
+  `rg-fittrack-ai-dev` en `eastus`.
+- `az group show --name "$(terraform output -raw resource_group_name)" --query tags -o json` →
+  confirma los 5 tags de `common_tags` (`project`, `environment`, `owner`, `cost_center`,
+  `managed_by`).
+- Backend: `uv run ruff check .` limpio. `uv run pytest` no se pudo correr en esta máquina porque
+  el Docker daemon local (Postgres de test en `localhost:5433`) no estaba activo — no relacionado
+  con este cambio de Terraform.
+
+### Nota sobre el apply interactivo
+
+`terraform apply` requiere una confirmación manual (`yes`) por una terminal real con TTY. No
+puede ejecutarse vía canales no interactivos (p. ej. `echo "yes" | terraform apply` o el prefijo
+`!` de Claude Code), que fallan con `Error: error asking for approval: EOF`. El apply real de este
+bloque se corrió directamente en una terminal.
+
+## Destroy Resource Group
+
+Para destruir el Resource Group creado en este bloque:
+
+```bash
+cd infra/terraform/azure/environments/dev
+terraform destroy -var-file="terraform.resource-group.example.tfvars"
+```
+
+**Warning:** destruir el Resource Group borra todos los recursos que existan dentro de él. Hoy
+sólo contiene el Resource Group mismo, pero en cuanto se activen módulos futuros (ACR, Postgres,
+Container Apps, ...) dentro de él, destruirlo los destruye también.
+
+`terraform destroy` **no se ha ejecutado** — el Resource Group sigue activo.
+
 ## Siguiente paso recomendado
 
-**Bloque 4.5 — Terraform Resource Group Module (primer apply)**: autorizar explícitamente el
-primer `terraform apply` habilitando `create_resource_group = true` (el módulo ya existe desde
-el Bloque 4.4), verificar que el Resource Group se crea correctamente, y luego implementar
-`modules/acr` como el siguiente módulo real.
+**Bloque 4.7 — Terraform ACR Module Plan**: implementar el módulo `acr` bajo `modules/acr`,
+manteniendo `create_acr = false` por default. Permitir previsualizar (`terraform plan`) la
+creación del ACR sólo cuando `create_resource_group = true` y `create_acr = true` simultáneamente.
+No ejecutar `terraform apply` en este próximo bloque — sólo dejar el módulo listo para recibir
+imágenes Docker del backend en bloques posteriores.
