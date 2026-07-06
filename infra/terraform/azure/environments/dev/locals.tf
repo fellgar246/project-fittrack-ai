@@ -15,7 +15,7 @@ locals {
   # Planned names for future blocks (4.4+). Nothing below is created yet
   # except the optional resource group in main.tf.
   resource_group_name     = "rg-${var.project_name}-${var.environment}"
-  acr_name                = "acr${local.normalized_project_name}${var.environment}"
+  acr_name                = substr("acr${local.normalized_project_name}${var.environment}${var.unique_suffix}", 0, 50)
   storage_account_name    = "st${local.normalized_project_name}${var.environment}"
   container_app_env_name  = "cae-${var.project_name}-${var.environment}"
   container_app_api_name  = "ca-${var.project_name}-api-${var.environment}"

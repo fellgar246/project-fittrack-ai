@@ -17,3 +17,19 @@ module "resource_group" {
   location = var.location
   tags     = local.common_tags
 }
+
+# Block 4.7 — first real module beyond the resource group. Gated behind
+# create_acr (default false); create_acr's validation in variables.tf
+# guarantees create_resource_group is also true whenever this is enabled, so
+# module.resource_group[0] is always safe to reference here.
+module "acr" {
+  source = "../../modules/acr"
+  count  = var.create_acr ? 1 : 0
+
+  name                = local.acr_name
+  resource_group_name = module.resource_group[0].name
+  location            = module.resource_group[0].location
+  sku                 = var.acr_sku
+  admin_enabled       = var.acr_admin_enabled
+  tags                = local.common_tags
+}

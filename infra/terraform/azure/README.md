@@ -23,11 +23,16 @@ Este documento cubre cuatro bloques:
   real del proyecto, autorizado y controlado, creando únicamente el Azure Resource Group
   (`rg-fittrack-ai-dev`). Ver la sección [Block 4.6](#block-46--first-resource-group-apply) más
   abajo para el detalle completo (comandos, outputs, verificación).
+- **Bloque 4.7 — Terraform ACR Module Plan**: convierte `modules/acr` de placeholder a módulo real
+  y lo conecta en `environments/dev` detrás de `create_acr` (default `false`). Solo planificación —
+  no ejecuta `terraform apply`. Ver la sección [Block 4.7](#block-47--terraform-acr-module-plan)
+  más abajo.
 
-**Los bloques 4.3, 4.4 y 4.5 no crean ningún recurso de Azure ni ejecutan `terraform apply`.** Con
-todas las banderas `create_*` en `false` (default de `terraform.tfvars.example`), `terraform plan`
-no agrega ni cambia ningún recurso — solo calcula los outputs informativos. El Bloque 4.6 es el
-primero que ejecuta un `apply` real, y lo hace sobre un único recurso (el Resource Group).
+**Los bloques 4.3, 4.4, 4.5 y 4.7 no crean ningún recurso de Azure ni ejecutan `terraform apply`.**
+Con todas las banderas `create_*` en `false` (default de `terraform.tfvars.example`), `terraform
+plan` no agrega ni cambia ningún recurso — solo calcula los outputs informativos. El Bloque 4.6 es
+el único que ha ejecutado un `apply` real hasta ahora, y lo hizo sobre un único recurso (el
+Resource Group).
 
 ## 2. Estructura creada
 
@@ -45,11 +50,12 @@ infra/terraform/azure/
 │       ├── outputs.tf            # nombres planeados, tags y planned_modules
 │       ├── terraform.tfvars.example
 │       ├── terraform.resource-group.example.tfvars  # previsualiza sólo el Resource Group
+│       ├── terraform.acr.example.tfvars              # previsualiza Resource Group + ACR
 │       └── README.md             # quickstart del entorno dev
 └── modules/
     ├── README.md                 # overview de la capa de módulos
-    ├── resource_group/           # ÚNICO módulo real (main/variables/outputs.tf)
-    ├── acr/                      # placeholder (solo README.md)
+    ├── resource_group/           # módulo real (main/variables/outputs.tf)
+    ├── acr/                      # módulo real (main/variables/outputs.tf)
     ├── key_vault/                # placeholder
     ├── managed_identities/       # placeholder
     ├── networking/                # placeholder
@@ -77,7 +83,7 @@ Terraform da:
 
 ```hcl
 terraform {
-  required_version = ">= 1.6.0"
+  required_version = ">= 1.9.0"
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
@@ -86,6 +92,10 @@ terraform {
   }
 }
 ```
+
+`required_version` subió de `>= 1.6.0` a `>= 1.9.0` en el Bloque 4.7: la validación cruzada de
+`create_acr` (que exige `create_resource_group=true`) usa una referencia entre variables dentro de
+un bloque `validation`, soportada desde Terraform 1.9.
 
 Se usa `azurerm ~> 4.0` (línea estable actual del provider). **Detalle importante:** a partir de
 la v4, `azurerm` **requiere `subscription_id`** en el bloque `provider`. Para no hardcodear ese
@@ -110,8 +120,11 @@ provider "azurerm" {
 | `owner` | string | *(requerido)* | Dueño/mantenedor de los recursos. |
 | `cost_center` | string | `"portfolio"` | Etiqueta de costos. |
 | `subscription_id` | string | `null` | Preferir `ARM_SUBSCRIPTION_ID` o `az login`; no commitear valores reales. |
-| `create_resource_group` | bool | `false` | Habilita `module.resource_group`. Único módulo real hoy. |
-| `create_acr` | bool | `false` | Planeado — `modules/acr` es placeholder. |
+| `create_resource_group` | bool | `false` | Habilita `module.resource_group`. |
+| `create_acr` | bool | `false` | Habilita `module.acr`. Requiere `create_resource_group=true` (validado). |
+| `acr_sku` | string | `"Basic"` | `Basic`, `Standard` o `Premium`. |
+| `acr_admin_enabled` | bool | `false` | Debe permanecer `false`; el acceso futuro es vía managed identity. |
+| `unique_suffix` | string | `""` | Sufijo opcional (3–8 alfanumérico minúscula) para nombres globales como ACR. |
 | `create_key_vault` | bool | `false` | Planeado — `modules/key_vault` es placeholder. |
 | `create_managed_identities` | bool | `false` | Planeado — `modules/managed_identities` es placeholder. |
 | `create_networking` | bool | `false` | Planeado — `modules/networking` es placeholder. |
@@ -168,7 +181,7 @@ están validados contra las reglas de Azure para los recursos que vendrán en bl
 | Local | Valor (dev) | Regla de Azure |
 |---|---|---|
 | `resource_group_name` | `rg-fittrack-ai-dev` | ≤90 car., alfanumérico + `-._()` |
-| `acr_name` | `acrfittrackaidev` | 5–50 car., solo alfanumérico minúsculas, único global |
+| `acr_name` | `acrfittrackaidev` (o con sufijo: `acrfittrackaidevdev01`) | 5–50 car., solo alfanumérico minúsculas, único global |
 | `storage_account_name` | `stfittrackaidev` | 3–24 car., solo alfanumérico minúsculas, único global |
 | `container_app_env_name` | `cae-fittrack-ai-dev` | ≤32 car., alfanumérico + `-` |
 | `container_app_api_name` | `ca-fittrack-ai-api-dev` | ≤32 car., alfanumérico + `-` |
@@ -305,8 +318,8 @@ la reproducibilidad pesa más que la simplicidad de tener un archivo menos. Por 
 ## 16. Qué NO hacer todavía
 
 - No ejecutar `terraform apply` para ningún módulo más allá de `resource_group` (ya aplicado en
-  el Bloque 4.6).
-- No crear Azure Container Registry, Container Apps, PostgreSQL, Blob Storage ni recursos de
+  el Bloque 4.6). El módulo `acr` está implementado (Bloque 4.7) pero también sigue sin `apply`.
+- No crear Azure Container Registry real, Container Apps, PostgreSQL, Blob Storage ni recursos de
   Azure OpenAI vía Terraform.
 - No configurar remote state.
 - No crear Key Vault.
@@ -369,6 +382,17 @@ la reproducibilidad pesa más que la simplicidad de tener un archivo menos. Por 
 11. **Módulos placeholder documentados en vez de carpetas vacías**: cada módulo no implementado
     tiene un `README.md` con inputs/outputs planeados, para que implementarlo después sea
     completar un contrato ya definido, no diseñarlo desde cero.
+12. **ACR después del Resource Group (Bloque 4.7)**: `create_acr=true` está validado para exigir
+    `create_resource_group=true`, evitando un módulo huérfano sin dónde crearse.
+13. **`admin_enabled=false` en ACR**: el acceso desde Container Apps usará Managed Identity +
+    rol `AcrPull` en un bloque futuro, no credenciales de admin embebidas.
+14. **`sku="Basic"` en ACR**: suficiente para un proyecto de portfolio en dev; reduce costo frente
+    a `Standard`/`Premium`.
+15. **`unique_suffix` explícito en vez de `random_string`**: el nombre de ACR es global; un sufijo
+    configurable resuelve colisiones sin introducir nombres no deterministas entre `plan` y
+    `apply`.
+16. **`terraform apply` de ACR diferido al Bloque 4.8**: este bloque separa deliberadamente la
+    implementación del módulo (y su validación vía `plan`) de la creación real del recurso.
 
 ## Precheck de Azure CLI (sin crear recursos)
 
@@ -476,10 +500,90 @@ Container Apps, ...) dentro de él, destruirlo los destruye también.
 
 `terraform destroy` **no se ha ejecutado** — el Resource Group sigue activo.
 
+## Block 4.7 — Terraform ACR Module Plan
+
+Status: **completed** (implementación y planificación; sin `apply`).
+
+Qué es ACR y para qué sirve en FitTrack AI: Azure Container Registry es el registro privado de
+imágenes Docker donde vivirá la imagen de la API (`docs/azure-container-apps-deploy.md` la creaba
+manualmente vía `az acr create`). Container Apps (bloques futuros) hará `pull` de esa imagen desde
+ahí.
+
+Por qué después del Resource Group: ACR necesita un `resource_group_name`/`location` existentes;
+el módulo `acr` toma esos valores de `module.resource_group[0]`, y `create_acr=true` está validado
+para exigir `create_resource_group=true`.
+
+Decisiones clave (ver también la sección [Decisiones técnicas](#decisiones-técnicas-resumen)):
+
+- `admin_enabled=false`: el diseño futuro preferirá Managed Identity + rol `AcrPull`, no
+  credenciales de admin.
+- `sku="Basic"`: suficiente para dev/portfolio, minimiza costo cuando se cree.
+- Naming: ACR es global, sin guiones/mayúsculas, 5–50 caracteres. Se agregó `var.unique_suffix`
+  (vacío por default) para poder desambiguar el nombre sin usar `random_string` (evita nombres no
+  deterministas).
+
+Cambios de archivos:
+
+- `modules/acr/{main,variables,outputs}.tf` — nuevo módulo real; crea únicamente
+  `azurerm_container_registry`.
+- `environments/dev/versions.tf` — `required_version` a `>= 1.9.0`.
+- `environments/dev/variables.tf` — `create_acr` con validación cruzada, más `acr_sku`,
+  `acr_admin_enabled`, `unique_suffix`.
+- `environments/dev/locals.tf` — `acr_name` incorpora `unique_suffix` y se trunca a 50 caracteres.
+- `environments/dev/main.tf` — `module "acr"` gateado por `create_acr`.
+- `environments/dev/outputs.tf` — `acr_enabled`, `acr_name`, `acr_id`, `acr_login_server` (seguros
+  con `create_acr=false`).
+- `environments/dev/terraform.acr.example.tfvars` — nuevo, previsualiza Resource Group + ACR.
+
+Comandos de validación:
+
+```bash
+cd infra/terraform/azure/environments/dev
+terraform fmt -recursive -check
+terraform init
+terraform validate
+
+# Sólo Resource Group (ya en state): sin cambios
+terraform plan -var-file="terraform.resource-group.example.tfvars"
+
+# Resource Group + ACR: 1 recurso nuevo
+terraform plan -var-file="terraform.acr.example.tfvars"
+```
+
+### Resultados observados
+
+`terraform fmt -recursive -check`, `terraform init` y `terraform validate` (Terraform v1.13.5,
+`azurerm` v4.80.0) pasaron sin errores.
+
+Plan con `terraform.resource-group.example.tfvars` (Resource Group ya en state desde el Bloque
+4.6): sin cambios de recursos, solo nuevos valores de output (`acr_enabled = false`,
+`acr_name = "acrfittrackaidev"`) porque esos outputs no existían antes en el state.
+
+Plan con `terraform.acr.example.tfvars` (`unique_suffix = "dev01"`):
+
+```text
+# module.acr[0].azurerm_container_registry.this will be created
+  + admin_enabled       = false
+  + location            = "eastus"
+  + name                = "acrfittrackaidevdev01"
+  + resource_group_name = "rg-fittrack-ai-dev"
+  + sku                 = "Basic"
+
+Plan: 1 to add, 0 to change, 0 to destroy.
+```
+
+Único recurso nuevo: `module.acr[0].azurerm_container_registry.this`. No aparece Key Vault,
+PostgreSQL, Container Apps, Managed Identities, VNet ni Log Analytics.
+
+Backend: `uv run ruff check .` → `All checks passed!`. `uv run pytest` no se corrió porque el
+Docker daemon local estaba inactivo (mismo caso que el Bloque 4.6); no se modificó código de
+backend en este bloque, así que no hay regresión que verificar con pytest.
+
+**No se ejecutó `terraform apply` en este bloque. No se creó ningún ACR real.**
+
 ## Siguiente paso recomendado
 
-**Bloque 4.7 — Terraform ACR Module Plan**: implementar el módulo `acr` bajo `modules/acr`,
-manteniendo `create_acr = false` por default. Permitir previsualizar (`terraform plan`) la
-creación del ACR sólo cuando `create_resource_group = true` y `create_acr = true` simultáneamente.
-No ejecutar `terraform apply` en este próximo bloque — sólo dejar el módulo listo para recibir
-imágenes Docker del backend en bloques posteriores.
+**Bloque 4.8 — Terraform ACR Apply & Docker Push Preparation**: ejecutar `terraform apply`
+autorizado para crear únicamente ACR, verificar con `az acr show`, confirmar los outputs reales
+(`acr_name`, `acr_login_server`) y documentar `az acr login` / `docker tag` / `docker push`. No
+crear Container Apps ni Managed Identity todavía.

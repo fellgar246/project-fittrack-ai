@@ -37,6 +37,26 @@ output "resource_group_location" {
   value       = coalesce(one(module.resource_group[*].location), var.location)
 }
 
+output "acr_enabled" {
+  description = "Whether the Azure Container Registry module is enabled."
+  value       = var.create_acr
+}
+
+output "acr_name" {
+  description = "Azure Container Registry name when created, otherwise the planned name."
+  value       = coalesce(one(module.acr[*].name), local.acr_name)
+}
+
+output "acr_id" {
+  description = "Azure Container Registry ID when created. Null when disabled."
+  value       = one(module.acr[*].id)
+}
+
+output "acr_login_server" {
+  description = "Azure Container Registry login server when created. Null when disabled."
+  value       = one(module.acr[*].login_server)
+}
+
 output "planned_modules" {
   description = "Planned Terraform modules for future Azure services, in dependency order."
   value = [

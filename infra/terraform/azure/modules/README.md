@@ -10,7 +10,7 @@ feature flags, which ones actually create resources.
 | Module | Status | Target block |
 |---|---|---|
 | [`resource_group`](resource_group/README.md) | **Implemented** (gated by `create_resource_group`, default `false`) | 4.4 |
-| [`acr`](acr/README.md) | Placeholder | 4.6 |
+| [`acr`](acr/README.md) | **Implemented** (gated by `create_acr`, default `false`) | 4.7 |
 | [`managed_identities`](managed_identities/README.md) | Placeholder | 4.7 |
 | [`key_vault`](key_vault/README.md) | Placeholder | 4.8 |
 | [`networking`](networking/README.md) | Placeholder | 4.9 |
@@ -21,8 +21,10 @@ feature flags, which ones actually create resources.
 
 "Placeholder" means the folder currently contains only a `README.md` describing
 the module's future purpose, inputs, and outputs — no `.tf` files, no resources.
-Block numbers above are indicative planning, not a commitment; they may shift as
-the project evolves.
+"Implemented" means real `.tf` files exist and the module creates resources when
+its `create_*` flag is enabled, regardless of whether `terraform apply` has been
+run yet. Block numbers above are indicative planning, not a commitment; they may
+shift as the project evolves.
 
 ## Planned module flow
 
@@ -53,5 +55,5 @@ always an explicit, separate decision — never a side effect of adding a module
 
 `terraform apply` is **not run** as part of building out this module structure.
 Modules are added and wired with their flags off; a real `apply` only happens when
-a future block explicitly authorizes it (starting with `create_resource_group=true`
-in Block 4.5).
+a future block explicitly authorizes it. `create_resource_group=true` was authorized
+in Block 4.5/4.6; every other flag, including `create_acr`, stays `false` by default.

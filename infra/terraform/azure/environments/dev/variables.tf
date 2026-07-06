@@ -60,8 +60,41 @@ variable "create_resource_group" {
 
 variable "create_acr" {
   type        = bool
-  description = "Whether to create the Azure Container Registry. Planned for a future block (modules/acr is currently a placeholder)."
+  description = "Whether to create the Azure Container Registry. Requires create_resource_group=true."
   default     = false
+
+  validation {
+    condition     = !var.create_acr || var.create_resource_group
+    error_message = "create_acr=true requires create_resource_group=true."
+  }
+}
+
+variable "acr_sku" {
+  type        = string
+  description = "SKU for the Azure Container Registry."
+  default     = "Basic"
+
+  validation {
+    condition     = contains(["Basic", "Standard", "Premium"], var.acr_sku)
+    error_message = "acr_sku must be one of: Basic, Standard, Premium."
+  }
+}
+
+variable "acr_admin_enabled" {
+  type        = bool
+  description = "Whether to enable the ACR admin user. Should remain false in favor of managed identity based access."
+  default     = false
+}
+
+variable "unique_suffix" {
+  type        = string
+  description = "Optional suffix used to help make globally-scoped Azure resource names (like ACR) unique."
+  default     = ""
+
+  validation {
+    condition     = var.unique_suffix == "" || can(regex("^[a-z0-9]{3,8}$", var.unique_suffix))
+    error_message = "unique_suffix must be empty or 3 to 8 lowercase alphanumeric characters."
+  }
 }
 
 variable "create_key_vault" {
