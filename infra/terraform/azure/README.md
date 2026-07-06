@@ -27,12 +27,17 @@ Este documento cubre cuatro bloques:
   y lo conecta en `environments/dev` detrás de `create_acr` (default `false`). Solo planificación —
   no ejecuta `terraform apply`. Ver la sección [Block 4.7](#block-47--terraform-acr-module-plan)
   más abajo.
+- **Bloque 4.8 — Terraform ACR Apply & Docker Push Preparation**: ejecuta el `terraform apply`
+  autorizado que crea el Azure Container Registry real (`acrfittrackaidevdev01`), verifica el
+  resultado con Azure CLI, y documenta (sin ejecutar) los comandos futuros de `az acr login` /
+  `docker build` / `docker tag` / `docker push`. Ver la sección
+  [Block 4.8](#block-48--acr-apply) más abajo.
 
 **Los bloques 4.3, 4.4, 4.5 y 4.7 no crean ningún recurso de Azure ni ejecutan `terraform apply`.**
 Con todas las banderas `create_*` en `false` (default de `terraform.tfvars.example`), `terraform
-plan` no agrega ni cambia ningún recurso — solo calcula los outputs informativos. El Bloque 4.6 es
-el único que ha ejecutado un `apply` real hasta ahora, y lo hizo sobre un único recurso (el
-Resource Group).
+plan` no agrega ni cambia ningún recurso — solo calcula los outputs informativos. Los bloques 4.6
+y 4.8 son, hasta ahora, los únicos que han ejecutado un `apply` real: el 4.6 creó el Resource
+Group, y el 4.8 el Azure Container Registry.
 
 ## 2. Estructura creada
 
@@ -317,10 +322,11 @@ la reproducibilidad pesa más que la simplicidad de tener un archivo menos. Por 
 
 ## 16. Qué NO hacer todavía
 
-- No ejecutar `terraform apply` para ningún módulo más allá de `resource_group` (ya aplicado en
-  el Bloque 4.6). El módulo `acr` está implementado (Bloque 4.7) pero también sigue sin `apply`.
-- No crear Azure Container Registry real, Container Apps, PostgreSQL, Blob Storage ni recursos de
-  Azure OpenAI vía Terraform.
+- No ejecutar `terraform apply` para ningún módulo más allá de `resource_group` (Bloque 4.6) y
+  `acr` (Bloque 4.8).
+- No crear Container Apps, PostgreSQL, Blob Storage ni recursos de Azure OpenAI vía Terraform.
+- No hacer push de imágenes Docker al ACR real (llega en el Bloque 4.9).
+- No configurar el rol `AcrPull` todavía (requiere Managed Identity, bloque futuro).
 - No configurar remote state.
 - No crear Key Vault.
 - No configurar GitHub Actions / CI-CD.
@@ -391,8 +397,12 @@ la reproducibilidad pesa más que la simplicidad de tener un archivo menos. Por 
 15. **`unique_suffix` explícito en vez de `random_string`**: el nombre de ACR es global; un sufijo
     configurable resuelve colisiones sin introducir nombres no deterministas entre `plan` y
     `apply`.
-16. **`terraform apply` de ACR diferido al Bloque 4.8**: este bloque separa deliberadamente la
-    implementación del módulo (y su validación vía `plan`) de la creación real del recurso.
+16. **`terraform apply` de ACR diferido al Bloque 4.8**: el Bloque 4.7 separó deliberadamente la
+    implementación del módulo (y su validación vía `plan`) de la creación real del recurso; el
+    Bloque 4.8 ejecutó ese `apply`.
+17. **Push de imágenes Docker separado del `apply` de ACR (Bloque 4.9)**: crear el registro
+    (infraestructura) y poblarlo con imágenes (artefactos) son pasos independientes y auditables
+    por separado.
 
 ## Precheck de Azure CLI (sin crear recursos)
 
@@ -581,9 +591,145 @@ backend en este bloque, así que no hay regresión que verificar con pytest.
 
 **No se ejecutó `terraform apply` en este bloque. No se creó ningún ACR real.**
 
+## Block 4.8 — ACR Apply
+
+Status: **completed**
+
+Created resources:
+
+- Azure Container Registry (`acrfittrackaidevdev01`, SKU `Basic`, `admin_enabled=false`)
+
+Terraform state:
+
+```text
+module.resource_group[0].azurerm_resource_group.this
+module.acr[0].azurerm_container_registry.this
+```
+
+No other Azure services were created.
+
+Por qué ACR se creó después del Resource Group: `create_acr=true` está validado para exigir
+`create_resource_group=true` — ACR necesita un contenedor lógico (`resource_group_name`/`location`)
+que ya exista. Por qué `admin_enabled=false`: evita credenciales estáticas de admin embebidas en
+ningún lado; el acceso desde Container Apps usará Managed Identity + rol `AcrPull` en un bloque
+futuro. Por qué `sku="Basic"`: suficiente para dev/portfolio, minimiza costo. Por qué no se hizo
+push de imágenes todavía: separa deliberadamente la infraestructura (el registro) de los
+artefactos (las imágenes), que llegan en el Bloque 4.9. Por qué no se configuró `AcrPull` todavía:
+requiere una Managed Identity que aún no existe.
+
+### Comandos ejecutados
+
+```bash
+cd infra/terraform/azure/environments/dev
+terraform fmt -recursive -check
+terraform init
+terraform validate
+terraform plan -var-file="terraform.acr.example.tfvars"
+terraform apply -var-file="terraform.acr.example.tfvars"   # confirmado manualmente con "yes"
+```
+
+No se usó `-auto-approve`.
+
+### Resultado del plan
+
+```text
+Plan: 1 to add, 0 to change, 0 to destroy.
+```
+
+Único recurso planeado: `module.acr[0].azurerm_container_registry.this`.
+
+### Resultado del apply
+
+```text
+Apply complete! Resources: 1 added, 0 changed, 0 destroyed.
+```
+
+### Outputs relevantes
+
+```text
+acr_enabled      = true
+acr_name         = "acrfittrackaidevdev01"
+acr_id           = "/subscriptions/<subscription-id>/resourceGroups/rg-fittrack-ai-dev/providers/Microsoft.ContainerRegistry/registries/acrfittrackaidevdev01"
+acr_login_server = "acrfittrackaidevdev01.azurecr.io"
+```
+
+### Verificación
+
+- `terraform state list` → exactamente `module.resource_group[0].azurerm_resource_group.this` y
+  `module.acr[0].azurerm_container_registry.this`.
+- `az acr show --name "$(terraform output -raw acr_name)" --resource-group
+  "$(terraform output -raw resource_group_name)" --query "{name:name, sku:sku.name,
+  adminUserEnabled:adminUserEnabled, loginServer:loginServer}" -o json` → confirma
+  `sku=Basic`, `adminUserEnabled=false`, `loginServer=acrfittrackaidevdev01.azurecr.io`.
+- Backend: `uv run ruff check .` → `All checks passed!`. `uv run pytest` no se corrió porque el
+  Docker daemon local estaba inactivo (mismo caso que los Bloques 4.6 y 4.7); no se modificó código
+  de backend en este bloque.
+
+### Docker image push preparation
+
+ACR ya está disponible como el registro privado para las imágenes del backend de FitTrack AI.
+
+ACR actual:
+
+```bash
+terraform output -raw acr_name
+terraform output -raw acr_login_server
+```
+
+Comando futuro de login:
+
+```bash
+az acr login --name "$(terraform output -raw acr_name)"
+```
+
+Build futuro de la imagen desde la raíz del repo:
+
+```bash
+docker build -f backend/Dockerfile -t fittrack-api:local backend
+```
+
+Tag futuro de la imagen:
+
+```bash
+docker tag fittrack-api:local "$(terraform output -raw acr_login_server)/fittrack-api:latest"
+```
+
+Push futuro:
+
+```bash
+docker push "$(terraform output -raw acr_login_server)/fittrack-api:latest"
+```
+
+**No se hace push de imágenes hasta el Bloque 4.9 dedicado.**
+
+### Destroy ACR
+
+Para destruir el ACR preservando el Resource Group:
+
+```hcl
+create_resource_group = true
+create_acr            = false
+```
+
+```bash
+terraform plan -var-file="terraform.resource-group.example.tfvars"
+terraform apply -var-file="terraform.resource-group.example.tfvars"
+```
+
+Resultado esperado:
+
+```text
+Plan: 0 to add, 0 to change, 1 to destroy.
+```
+
+**Warning:** destruir el ACR borra las imágenes de contenedor que se hayan hecho push. En esta
+etapa no se ha hecho push de ninguna imagen todavía.
+
+`terraform destroy` **no se ha ejecutado** — el ACR sigue activo.
+
 ## Siguiente paso recomendado
 
-**Bloque 4.8 — Terraform ACR Apply & Docker Push Preparation**: ejecutar `terraform apply`
-autorizado para crear únicamente ACR, verificar con `az acr show`, confirmar los outputs reales
-(`acr_name`, `acr_login_server`) y documentar `az acr login` / `docker tag` / `docker push`. No
-crear Container Apps ni Managed Identity todavía.
+**Bloque 4.9 — Docker Build, Tag & Push to ACR**: usar el ACR creado en el Bloque 4.8, hacer login
+con `az acr login`, construir la imagen productiva del backend (`backend/Dockerfile`), etiquetarla
+con el login server de ACR, hacer push manual, y verificar con `az acr repository list` que la
+imagen existe en ACR. No crear Container Apps ni Managed Identity todavía.

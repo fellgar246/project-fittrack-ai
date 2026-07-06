@@ -1,6 +1,7 @@
 # Module: acr
 
-**Status:** implemented (Block 4.7) — gated by `create_acr` (default `false`) in `environments/dev`.
+**Status:** implemented and applied (Block 4.8) — gated by `create_acr` (default `false`) in
+`environments/dev`. The real Azure Container Registry (`acrfittrackaidevdev01`) now exists.
 
 ## Purpose
 
@@ -42,6 +43,16 @@ alphanumeric characters) if the base name collides with an existing registry.
 
 ## Block 4.7 scope
 
-This block only implements and plans the module — it does not run `terraform apply`.
+This block only implemented and planned the module — it did not run `terraform apply`.
 See [`../../README.md`](../../README.md) for the plan scenarios and
 [`environments/dev/README.md`](../../environments/dev/README.md) for the exact commands.
+
+## Block 4.8 scope
+
+`terraform apply -var-file="terraform.acr.example.tfvars"` ran successfully, creating exactly
+`module.acr[0].azurerm_container_registry.this` (`acrfittrackaidevdev01`, SKU `Basic`,
+`admin_enabled=false`). Verified via `terraform state list`, `terraform output`, and
+`az acr show`. No Docker image has been pushed to this registry yet — that is planned for
+Block 4.9. `AcrPull` role assignment is not configured yet; it requires a Managed Identity
+that does not exist yet. See the "Block 4.8" section in
+[`../../README.md`](../../README.md) for the full apply output and verification commands.
