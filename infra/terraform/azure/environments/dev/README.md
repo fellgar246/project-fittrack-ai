@@ -18,7 +18,7 @@ terraform plan -var-file="terraform.resource-group.example.tfvars"
 # Escenario 3 — Resource Group + ACR (0 recursos a crear: ambos ya están en state desde el Bloque 4.8)
 terraform plan -var-file="terraform.acr.example.tfvars"
 
-# Escenario 4 — + Monitoring + Container Apps Environment (2 recursos nuevos a crear, sin apply)
+# Escenario 4 — + Monitoring + Container Apps Environment (0 recursos a crear: ambos ya están en state desde el Bloque 4.11)
 terraform plan -var-file="terraform.container-apps-env.example.tfvars"
 ```
 
@@ -41,11 +41,16 @@ terraform plan -var-file="terraform.container-apps-env.example.tfvars"
   detalle completo, incluyendo la desviación del smoke test respecto al plan original.
 - **Bloque 4.10**: `modules/monitoring` y `modules/container_apps_environment` se convirtieron en
   módulos reales, detrás de `create_monitoring` y `create_container_apps_environment` (ambos
-  default `false`). Sólo planificación — no se ejecutó `terraform apply`. El Escenario 4 de arriba
-  debe mostrar exactamente `Plan: 2 to add, 0 to change, 0 to destroy`
-  (`azurerm_log_analytics_workspace` + `azurerm_container_app_environment`). Ver la sección
+  default `false`). Sólo planificación — no se ejecutó `terraform apply`. Ver la sección
   "Block 4.10" en [`../../README.md`](../../README.md) para el detalle completo, incluyendo por
   qué el Container Apps Environment usa el resource ID del workspace en vez de una shared key.
+- **Bloque 4.11**: `terraform apply -var-file="terraform.container-apps-env.example.tfvars"` ya se
+  ejecutó y creó el Log Analytics Workspace (`log-fittrack-ai-dev`) y el Azure Container Apps
+  Environment (`cae-fittrack-ai-dev`) reales. El state ahora contiene 4 recursos: Resource Group,
+  ACR, Log Analytics Workspace y Container Apps Environment; los demás módulos siguen detrás de
+  sus flags `create_*` en `false`. El Escenario 4 de arriba ahora muestra `No changes`. Ver la
+  sección "Block 4.11" en [`../../README.md`](../../README.md) para el detalle completo,
+  incluyendo la verificación con Azure CLI y el rollback controlado.
 - `terraform plan` requiere una sesión de Azure activa (`az login`) o `ARM_SUBSCRIPTION_ID`
   exportada — el provider `azurerm` construye un authorizer al configurarse aunque los flags
   `create_*` estén en `false` y no vaya a crear ningún recurso. `terraform validate` y

@@ -1,8 +1,8 @@
 # Module: monitoring
 
-**Status:** implemented (Block 4.10) — gated by `create_monitoring` (default `false`) in
-`environments/dev`. No `terraform apply` has been run for this module yet; only
-`terraform plan` has been validated.
+**Status:** implemented and applied (Block 4.11) — gated by `create_monitoring` (default
+`false` in example tfvars, set to `true` in `terraform.container-apps-env.example.tfvars`) in
+`environments/dev`. The real Log Analytics Workspace (`log-fittrack-ai-dev`) exists in Azure.
 
 ## Purpose
 
@@ -44,4 +44,11 @@ Log Analytics Workspace, no alerts, dashboards, or diagnostic settings.
 
 Module implemented and wired behind `create_monitoring` (default `false`). Only
 `terraform plan` was validated — see [`../../README.md`](../../README.md) for the plan
-scenarios. `terraform apply` is deferred to Block 4.11.
+scenarios. `terraform apply` was deferred to Block 4.11.
+
+## Block 4.11 scope
+
+`terraform apply -var-file="terraform.container-apps-env.example.tfvars"` created the real
+Log Analytics Workspace: `log-fittrack-ai-dev`, `eastus`, SKU `PerGB2018`, retention 30 days.
+Verified with `az monitor log-analytics workspace show`. See "Block 4.11" in
+[`../../README.md`](../../README.md) for the full command log, outputs, and rollback path.

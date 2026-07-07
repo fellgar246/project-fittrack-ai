@@ -1,8 +1,9 @@
 # Module: container_apps_environment
 
-**Status:** implemented (Block 4.10) — gated by `create_container_apps_environment`
-(default `false`) in `environments/dev`. No `terraform apply` has been run for this
-module yet; only `terraform plan` has been validated.
+**Status:** implemented and applied (Block 4.11) — gated by `create_container_apps_environment`
+(default `false` in example tfvars, set to `true` in
+`terraform.container-apps-env.example.tfvars`) in `environments/dev`. The real Azure Container
+Apps Environment (`cae-fittrack-ai-dev`) exists in Azure.
 
 ## Purpose
 
@@ -46,6 +47,13 @@ networking; a dedicated/private VNet integration can be added later via the
 
 Module implemented and wired behind `create_container_apps_environment` (default
 `false`). Only `terraform plan` was validated — see [`../../README.md`](../../README.md)
-for the plan scenarios. `terraform apply` is deferred to Block 4.11. Managed Identity and
-`AcrPull` role assignment are not configured yet; they arrive when the real Container App
-is created in a later block.
+for the plan scenarios. `terraform apply` was deferred to Block 4.11.
+
+## Block 4.11 scope
+
+`terraform apply -var-file="terraform.container-apps-env.example.tfvars"` created the real
+Container Apps Environment: `cae-fittrack-ai-dev`, `eastus`, `provisioningState=Succeeded`,
+`default_domain=wittydune-377fa2b0.eastus.azurecontainerapps.io`. Verified with
+`az containerapp env show`. See "Block 4.11" in [`../../README.md`](../../README.md) for the
+full command log, outputs, and rollback path. Managed Identity and `AcrPull` role assignment
+are still not configured; they arrive when the real Container App is created in Block 4.12.

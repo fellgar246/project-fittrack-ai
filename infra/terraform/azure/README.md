@@ -41,12 +41,18 @@ Este documento cubre cuatro bloques:
   detrás de `create_monitoring` y `create_container_apps_environment` (ambos default `false`).
   Solo planificación — no ejecuta `terraform apply`. Ver la sección
   [Block 4.10](#block-410--terraform-container-apps-environment-module-plan) más abajo.
+- **Bloque 4.11 — Terraform Container Apps Environment Apply**: ejecuta el `terraform apply`
+  autorizado que crea el Log Analytics Workspace (`log-fittrack-ai-dev`) y el Azure Container
+  Apps Environment (`cae-fittrack-ai-dev`) reales, verifica el resultado con Azure CLI, y confirma
+  outputs como `default_domain`. Ver la sección
+  [Block 4.11](#block-411--container-apps-environment-apply) más abajo.
 
 **Los bloques 4.3, 4.4, 4.5, 4.7 y 4.10 no crean ningún recurso de Azure ni ejecutan `terraform
 apply`.** Con todas las banderas `create_*` en `false` (default de `terraform.tfvars.example`),
 `terraform plan` no agrega ni cambia ningún recurso — solo calcula los outputs informativos. Los
-bloques 4.6 y 4.8 son, hasta ahora, los únicos que han ejecutado un `apply` real: el 4.6 creó el
-Resource Group, y el 4.8 el Azure Container Registry.
+bloques 4.6, 4.8 y 4.11 son, hasta ahora, los únicos que han ejecutado un `apply` real: el 4.6
+creó el Resource Group, el 4.8 el Azure Container Registry, y el 4.11 el Log Analytics Workspace
+y el Container Apps Environment.
 
 ## 2. Estructura creada
 
@@ -186,9 +192,12 @@ Cada módulo se activa con su propia bandera `create_<módulo>` (todas en `false
 ## 5.3. Apply policy
 
 `terraform apply` **no se ejecuta** como parte de construir o extender esta estructura. Un
-`apply` real solo ocurre cuando un bloque futuro lo autoriza explícitamente. El primero fue el
-Bloque 4.6, que habilitó `create_resource_group = true` y creó el Resource Group. Las 8 banderas
-restantes siguen en `false`; cada una se activará en su propio bloque futuro.
+`apply` real solo ocurre cuando un bloque futuro lo autoriza explícitamente. El Bloque 4.6
+habilitó `create_resource_group = true`, el Bloque 4.8 `create_acr = true`, y el Bloque 4.11
+`create_monitoring = true` y `create_container_apps_environment = true`. Las 5 banderas
+restantes (`create_key_vault`, `create_managed_identities`, `create_networking`,
+`create_postgres`, `create_container_apps`) siguen en `false`; cada una se activará en su propio
+bloque futuro.
 
 ## 6. Naming conventions
 
@@ -334,9 +343,10 @@ la reproducibilidad pesa más que la simplicidad de tener un archivo menos. Por 
 
 ## 16. Qué NO hacer todavía
 
-- No ejecutar `terraform apply` para ningún módulo más allá de `resource_group` (Bloque 4.6) y
-  `acr` (Bloque 4.8).
-- No crear Container Apps, PostgreSQL, Blob Storage ni recursos de Azure OpenAI vía Terraform.
+- No ejecutar `terraform apply` para ningún módulo más allá de `resource_group` (Bloque 4.6),
+  `acr` (Bloque 4.8), `monitoring` y `container_apps_environment` (Bloque 4.11).
+- No crear Container Apps (la aplicación en sí), PostgreSQL, Blob Storage ni recursos de Azure
+  OpenAI vía Terraform.
 - No hacer push de imágenes Docker al ACR real (llega en el Bloque 4.9).
 - No configurar el rol `AcrPull` todavía (requiere Managed Identity, bloque futuro).
 - No configurar remote state.
@@ -426,6 +436,9 @@ la reproducibilidad pesa más que la simplicidad de tener un archivo menos. Por 
 20. **`terraform apply` de Monitoring/Container Apps Environment diferido al Bloque 4.11**: mismo
     patrón que ACR (Bloques 4.7/4.8) — separar implementación validada por `plan` de la creación
     real de recursos.
+21. **Apply de Monitoring/Container Apps Environment ejecutado en el Bloque 4.11**: el `apply` se
+    limitó explícitamente a los 2 recursos ya validados por `plan` en el Bloque 4.10, sin abrir la
+    puerta a Container App, Managed Identity, AcrPull, Key Vault ni PostgreSQL en el mismo cambio.
 
 ## Precheck de Azure CLI (sin crear recursos)
 
@@ -964,9 +977,132 @@ modificó código de backend en este bloque.
 Apps Environment reales. No se creó Container App, Managed Identity, AcrPull, Key Vault,
 PostgreSQL ni networking privado.**
 
+## Block 4.11 — Container Apps Environment Apply
+
+Status: **completed**
+
+Created resources:
+
+- Log Analytics Workspace (`log-fittrack-ai-dev`, SKU `PerGB2018`, retención 30 días)
+- Azure Container Apps Environment (`cae-fittrack-ai-dev`)
+
+Terraform state:
+
+```text
+module.resource_group[0].azurerm_resource_group.this
+module.acr[0].azurerm_container_registry.this
+module.monitoring[0].azurerm_log_analytics_workspace.this
+module.container_apps_environment[0].azurerm_container_app_environment.this
+```
+
+No se creó Container App, Managed Identity, AcrPull, Key Vault, PostgreSQL ni networking privado.
+
+Por qué Log Analytics antes del Environment: `azurerm_container_app_environment` requiere
+`log_analytics_workspace_id` en su creación (ver decisión #18 más abajo). Por qué el Environment
+antes de la Container App real: primero se valida el runtime compartido; el Bloque 4.12
+implementará el módulo `container_apps` sobre esta base ya probada.
+
+### Comandos ejecutados
+
+```bash
+cd infra/terraform/azure/environments/dev
+terraform fmt -recursive -check
+terraform init
+terraform validate
+terraform plan -var-file="terraform.container-apps-env.example.tfvars"
+terraform apply -var-file="terraform.container-apps-env.example.tfvars"   # confirmado manualmente con "yes"
+```
+
+No se usó `-auto-approve`. El apply se ejecutó directamente en una terminal interactiva (ver la
+nota del Bloque 4.6 sobre por qué el apply real no puede correr vía canales no interactivos).
+
+### Resultado del plan
+
+```text
+Plan: 2 to add, 0 to change, 0 to destroy.
+```
+
+Únicos recursos planeados: `module.monitoring[0].azurerm_log_analytics_workspace.this` y
+`module.container_apps_environment[0].azurerm_container_app_environment.this`.
+
+### Resultado del apply
+
+```text
+Apply complete! Resources: 2 added, 0 changed, 0 destroyed.
+```
+
+### Outputs relevantes
+
+```text
+monitoring_enabled                         = true
+log_analytics_workspace_name               = "log-fittrack-ai-dev"
+log_analytics_workspace_id                 = "/subscriptions/<subscription-id>/resourceGroups/rg-fittrack-ai-dev/providers/Microsoft.OperationalInsights/workspaces/log-fittrack-ai-dev"
+
+container_apps_environment_enabled         = true
+container_apps_environment_name            = "cae-fittrack-ai-dev"
+container_apps_environment_id              = "/subscriptions/<subscription-id>/resourceGroups/rg-fittrack-ai-dev/providers/Microsoft.App/managedEnvironments/cae-fittrack-ai-dev"
+container_apps_environment_default_domain  = "wittydune-377fa2b0.eastus.azurecontainerapps.io"
+```
+
+`default_domain` ya existe con un valor real tras el apply (antes del apply aparecía como
+"known after apply").
+
+### Verificación
+
+- `terraform state list` → exactamente los 4 recursos listados arriba (Resource Group, ACR, Log
+  Analytics Workspace, Container Apps Environment). Sin otros recursos.
+- `az monitor log-analytics workspace show --resource-group "$(terraform output -raw
+  resource_group_name)" --workspace-name "$(terraform output -raw log_analytics_workspace_name)"
+  --query "{name:name, location:location, sku:sku.name, retentionInDays:retentionInDays}" -o json`
+  → confirma `name=log-fittrack-ai-dev`, `location=eastus`, `sku=PerGB2018`,
+  `retentionInDays=30`.
+- `az containerapp env show --name "$(terraform output -raw container_apps_environment_name)"
+  --resource-group "$(terraform output -raw resource_group_name)" --query
+  "{name:name, location:location, defaultDomain:properties.defaultDomain,
+  provisioningState:properties.provisioningState}" -o json` → confirma
+  `name=cae-fittrack-ai-dev`, `provisioningState=Succeeded`, `defaultDomain` coincide con el
+  output de Terraform.
+- `terraform plan -var-file="terraform.container-apps-env.example.tfvars"` (post-apply) →
+  `No changes. Your infrastructure matches the configuration.`
+- Backend: `uv run ruff check .` → `All checks passed!`. Se levantó el Postgres local de
+  `backend/docker-compose.yml` (servicio `db`, puerto 5433) y `uv run pytest` → `66 passed`. No
+  se modificó código de backend en este bloque.
+
+**No se creó Container App, Managed Identity, AcrPull, Key Vault, PostgreSQL en Azure, networking
+privado ni secrets. No se ejecutó `terraform destroy`.**
+
+### Destroy Container Apps Environment resources
+
+Para destruir únicamente los recursos de este bloque, preservando Resource Group y ACR, usar el
+escenario de ACR donde monitoring y container apps environment quedan deshabilitados:
+
+```bash
+cd infra/terraform/azure/environments/dev
+terraform plan -var-file="terraform.acr.example.tfvars"
+terraform apply -var-file="terraform.acr.example.tfvars"
+```
+
+Resultado esperado:
+
+```text
+Plan: 0 to add, 0 to change, 2 to destroy.
+```
+
+Recursos que se destruirían:
+
+- Azure Container Apps Environment
+- Log Analytics Workspace
+
+**Warning:** destruir Log Analytics borra los logs recolectados. Destruir el Container Apps
+Environment también afecta a cualquier Container App futura dentro de él. En esta etapa no existe
+ninguna Container App todavía.
+
+`terraform destroy` **no se ha ejecutado** — ambos recursos siguen activos.
+
 ## Siguiente paso recomendado
 
-**Bloque 4.11 — Terraform Container Apps Environment Apply**: ejecutar `terraform apply`
-autorizado para crear únicamente el Log Analytics Workspace y el Container Apps Environment,
-verificar con Azure CLI, y confirmar los outputs reales (incluido `default_domain`). No crear
-Container App ni desplegar la API todavía.
+**Bloque 4.12 — Terraform Container App Module Plan**: implementar el módulo `container_apps`,
+crear el plan para desplegar la API como Azure Container App usando la imagen ya publicada
+(`acrfittrackaidevdev01.azurecr.io/fittrack-api:block-4.9`), mantener `create_container_apps=false`
+por defecto (sin `apply`), y resolver explícitamente la autenticación de Container Apps contra el
+ACR privado — vía Managed Identity + rol `AcrPull` (el admin user de ACR sigue en `false`).
