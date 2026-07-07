@@ -105,8 +105,18 @@ variable "create_key_vault" {
 
 variable "create_managed_identities" {
   type        = bool
-  description = "Whether to create managed identities. Planned for a future block (modules/managed_identities is currently a placeholder)."
+  description = "Whether to create the API managed identity and its AcrPull role assignment. Requires create_resource_group=true and create_acr=true."
   default     = false
+
+  validation {
+    condition     = !var.create_managed_identities || var.create_resource_group
+    error_message = "create_managed_identities=true requires create_resource_group=true."
+  }
+
+  validation {
+    condition     = !var.create_managed_identities || var.create_acr
+    error_message = "create_managed_identities=true requires create_acr=true."
+  }
 }
 
 variable "create_networking" {
@@ -139,8 +149,28 @@ variable "create_container_apps_environment" {
 
 variable "create_container_apps" {
   type        = bool
-  description = "Whether to create the API Container App. Planned for a future block (modules/container_apps is currently a placeholder)."
+  description = "Whether to create the API Container App. Requires create_resource_group=true, create_acr=true, create_container_apps_environment=true, and create_managed_identities=true."
   default     = false
+
+  validation {
+    condition     = !var.create_container_apps || var.create_resource_group
+    error_message = "create_container_apps=true requires create_resource_group=true."
+  }
+
+  validation {
+    condition     = !var.create_container_apps || var.create_acr
+    error_message = "create_container_apps=true requires create_acr=true."
+  }
+
+  validation {
+    condition     = !var.create_container_apps || var.create_container_apps_environment
+    error_message = "create_container_apps=true requires create_container_apps_environment=true."
+  }
+
+  validation {
+    condition     = !var.create_container_apps || var.create_managed_identities
+    error_message = "create_container_apps=true requires create_managed_identities=true."
+  }
 }
 
 variable "create_monitoring" {
@@ -174,4 +204,40 @@ variable "log_analytics_retention_in_days" {
     condition     = var.log_analytics_retention_in_days >= 30 && var.log_analytics_retention_in_days <= 730
     error_message = "log_analytics_retention_in_days must be between 30 and 730."
   }
+}
+
+variable "api_image_tag" {
+  type        = string
+  description = "Docker image tag for the FitTrack AI API, published to the ACR by Block 4.9."
+  default     = "block-4.9"
+}
+
+variable "api_cpu" {
+  type        = number
+  description = "CPU cores allocated to the API Container App."
+  default     = 0.25
+}
+
+variable "api_memory" {
+  type        = string
+  description = "Memory allocated to the API Container App."
+  default     = "0.5Gi"
+}
+
+variable "api_min_replicas" {
+  type        = number
+  description = "Minimum number of API Container App replicas."
+  default     = 0
+}
+
+variable "api_max_replicas" {
+  type        = number
+  description = "Maximum number of API Container App replicas."
+  default     = 1
+}
+
+variable "api_target_port" {
+  type        = number
+  description = "Container port exposed by the FastAPI API."
+  default     = 8000
 }

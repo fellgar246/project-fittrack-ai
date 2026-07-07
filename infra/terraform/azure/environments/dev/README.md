@@ -20,6 +20,9 @@ terraform plan -var-file="terraform.acr.example.tfvars"
 
 # Escenario 4 — + Monitoring + Container Apps Environment (0 recursos a crear: ambos ya están en state desde el Bloque 4.11)
 terraform plan -var-file="terraform.container-apps-env.example.tfvars"
+
+# Escenario 5 — + Managed Identity + AcrPull + Container App (3 recursos nuevos a crear, sin apply)
+terraform plan -var-file="terraform.container-app.example.tfvars"
 ```
 
 - **Bloque 4.6**: `terraform apply -var-file="terraform.resource-group.example.tfvars"` ya se
@@ -51,6 +54,13 @@ terraform plan -var-file="terraform.container-apps-env.example.tfvars"
   sus flags `create_*` en `false`. El Escenario 4 de arriba ahora muestra `No changes`. Ver la
   sección "Block 4.11" en [`../../README.md`](../../README.md) para el detalle completo,
   incluyendo la verificación con Azure CLI y el rollback controlado.
+- **Bloque 4.12**: `modules/managed_identities` y `modules/container_apps` se convirtieron en
+  módulos reales, detrás de `create_managed_identities` y `create_container_apps` (ambos default
+  `false`). Sólo planificación — no se ejecutó `terraform apply`. El Escenario 5 de arriba debe
+  mostrar exactamente `Plan: 3 to add, 0 to change, 0 to destroy` (identidad + `AcrPull` +
+  Container App). Ver la sección "Block 4.12" en [`../../README.md`](../../README.md) para el
+  detalle completo, incluyendo por qué la Container App usa Managed Identity en vez de admin user
+  y qué variables son placeholders de planificación.
 - `terraform plan` requiere una sesión de Azure activa (`az login`) o `ARM_SUBSCRIPTION_ID`
   exportada — el provider `azurerm` construye un authorizer al configurarse aunque los flags
   `create_*` estén en `false` y no vaya a crear ningún recurso. `terraform validate` y

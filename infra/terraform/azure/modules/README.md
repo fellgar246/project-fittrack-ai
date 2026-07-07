@@ -9,15 +9,15 @@ feature flags, which ones actually create resources.
 
 | Module | Status | Target block |
 |---|---|---|
-| [`resource_group`](resource_group/README.md) | **Implemented** (gated by `create_resource_group`, default `false`) | 4.4 |
-| [`acr`](acr/README.md) | **Implemented** (gated by `create_acr`, default `false`) | 4.7 |
-| [`managed_identities`](managed_identities/README.md) | Placeholder | 4.7 |
+| [`resource_group`](resource_group/README.md) | **Implemented and applied** (gated by `create_resource_group`, default `false`) | 4.4 / apply 4.6 |
+| [`acr`](acr/README.md) | **Implemented and applied** (gated by `create_acr`, default `false`) | 4.7 / apply 4.8 |
+| [`managed_identities`](managed_identities/README.md) | **Implemented** (gated by `create_managed_identities`, default `false`) | 4.12 |
 | [`key_vault`](key_vault/README.md) | Placeholder | 4.8 |
 | [`networking`](networking/README.md) | Placeholder | 4.9 |
 | [`postgres_flexible`](postgres_flexible/README.md) | Placeholder | 4.10 |
-| [`monitoring`](monitoring/README.md) | **Implemented** (gated by `create_monitoring`, default `false`) | 4.10 |
-| [`container_apps_environment`](container_apps_environment/README.md) | **Implemented** (gated by `create_container_apps_environment`, default `false`) | 4.10 |
-| [`container_apps`](container_apps/README.md) | Placeholder | 4.13 |
+| [`monitoring`](monitoring/README.md) | **Implemented and applied** (gated by `create_monitoring`, default `false`) | 4.10 / apply 4.11 |
+| [`container_apps_environment`](container_apps_environment/README.md) | **Implemented and applied** (gated by `create_container_apps_environment`, default `false`) | 4.10 / apply 4.11 |
+| [`container_apps`](container_apps/README.md) | **Implemented** (gated by `create_container_apps`, default `false`) | 4.12 |
 
 "Placeholder" means the folder currently contains only a `README.md` describing
 the module's future purpose, inputs, and outputs — no `.tf` files, no resources.
@@ -26,9 +26,8 @@ its `create_*` flag is enabled, regardless of whether `terraform apply` has been
 run yet. Block numbers above are indicative planning, not a commitment; they may
 shift as the project evolves.
 
-"Implemented" also means: `monitoring` and `container_apps_environment` were built and
-their `plan` validated in Block 4.10, but `terraform apply` has **not** been run for
-either yet — that is deferred to Block 4.11.
+`managed_identities` and `container_apps` were built and their `plan` validated in
+Block 4.12, but `terraform apply` has **not** been run for either yet.
 
 ## Planned module flow
 

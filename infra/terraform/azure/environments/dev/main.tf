@@ -63,3 +63,49 @@ module "container_apps_environment" {
   log_analytics_workspace_id = module.monitoring[0].id
   tags                       = local.common_tags
 }
+
+# Block 4.12 — passwordless ACR access for the API Container App. Gated behind
+# create_managed_identities (default false); its validations in variables.tf
+# guarantee create_resource_group and create_acr are also true whenever this is
+# enabled, so module.resource_group[0] and module.acr[0] are always safe here.
+module "managed_identities" {
+  source = "../../modules/managed_identities"
+  count  = var.create_managed_identities ? 1 : 0
+
+  name                = local.api_identity_name
+  resource_group_name = module.resource_group[0].name
+  location            = module.resource_group[0].location
+  acr_id              = module.acr[0].id
+  tags                = local.common_tags
+}
+
+# Block 4.12 — the FitTrack AI API itself. Gated behind create_container_apps
+# (default false); its validations in variables.tf guarantee create_resource_group,
+# create_acr, create_container_apps_environment, and create_managed_identities are
+# also true whenever this is enabled, so every module reference below is safe.
+module "container_apps" {
+  source = "../../modules/container_apps"
+  count  = var.create_container_apps ? 1 : 0
+
+  name                         = local.container_app_api_name
+  resource_group_name          = module.resource_group[0].name
+  container_app_environment_id = module.container_apps_environment[0].id
+  image                        = "${module.acr[0].login_server}/fittrack-api:${var.api_image_tag}"
+  registry_server              = module.acr[0].login_server
+  identity_id                  = module.managed_identities[0].id
+  cpu                          = var.api_cpu
+  memory                       = var.api_memory
+  min_replicas                 = var.api_min_replicas
+  max_replicas                 = var.api_max_replicas
+  target_port                  = var.api_target_port
+  tags                         = local.common_tags
+
+  # Planning-only placeholders (Block 4.12 does not run terraform apply). Real
+  # secrets belong in Key Vault, not plaintext env vars — deferred to a future
+  # block before this Container App is ever applied.
+  env_vars = {
+    AI_PROVIDER    = "fake"
+    JWT_SECRET_KEY = "dev-only-placeholder-change-before-prod"
+    DATABASE_URL   = "postgresql+psycopg://placeholder:placeholder@placeholder:5432/fittrack"
+  }
+}

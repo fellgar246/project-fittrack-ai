@@ -46,13 +46,19 @@ Este documento cubre cuatro bloques:
   Apps Environment (`cae-fittrack-ai-dev`) reales, verifica el resultado con Azure CLI, y confirma
   outputs como `default_domain`. Ver la sección
   [Block 4.11](#block-411--container-apps-environment-apply) más abajo.
+- **Bloque 4.12 — Terraform Container App Module Plan**: convierte `modules/managed_identities`
+  y `modules/container_apps` de placeholder a módulos reales (User Assigned Managed Identity +
+  rol `AcrPull` + Container App de la API) y los conecta en `environments/dev` detrás de
+  `create_managed_identities` y `create_container_apps` (ambos default `false`). Solo
+  planificación — no ejecuta `terraform apply`. Ver la sección
+  [Block 4.12](#block-412--container-app-module-plan) más abajo.
 
-**Los bloques 4.3, 4.4, 4.5, 4.7 y 4.10 no crean ningún recurso de Azure ni ejecutan `terraform
-apply`.** Con todas las banderas `create_*` en `false` (default de `terraform.tfvars.example`),
-`terraform plan` no agrega ni cambia ningún recurso — solo calcula los outputs informativos. Los
-bloques 4.6, 4.8 y 4.11 son, hasta ahora, los únicos que han ejecutado un `apply` real: el 4.6
-creó el Resource Group, el 4.8 el Azure Container Registry, y el 4.11 el Log Analytics Workspace
-y el Container Apps Environment.
+**Los bloques 4.3, 4.4, 4.5, 4.7, 4.10 y 4.12 no crean ningún recurso de Azure ni ejecutan
+`terraform apply`.** Con todas las banderas `create_*` en `false` (default de
+`terraform.tfvars.example`), `terraform plan` no agrega ni cambia ningún recurso — solo calcula
+los outputs informativos. Los bloques 4.6, 4.8 y 4.11 son, hasta ahora, los únicos que han
+ejecutado un `apply` real: el 4.6 creó el Resource Group, el 4.8 el Azure Container Registry, y
+el 4.11 el Log Analytics Workspace y el Container Apps Environment.
 
 ## 2. Estructura creada
 
@@ -72,17 +78,18 @@ infra/terraform/azure/
 │       ├── terraform.resource-group.example.tfvars  # previsualiza sólo el Resource Group
 │       ├── terraform.acr.example.tfvars              # previsualiza Resource Group + ACR
 │       ├── terraform.container-apps-env.example.tfvars  # + Monitoring + Container Apps Env
+│       ├── terraform.container-app.example.tfvars       # + Managed Identity + Container App
 │       └── README.md             # quickstart del entorno dev
 └── modules/
     ├── README.md                 # overview de la capa de módulos
     ├── resource_group/           # módulo real (main/variables/outputs.tf)
     ├── acr/                      # módulo real (main/variables/outputs.tf)
     ├── key_vault/                # placeholder
-    ├── managed_identities/       # placeholder
+    ├── managed_identities/       # módulo real (main/variables/outputs.tf)
     ├── networking/                # placeholder
     ├── postgres_flexible/        # placeholder
     ├── container_apps_environment/  # módulo real (main/variables/outputs.tf)
-    ├── container_apps/           # placeholder
+    ├── container_apps/           # módulo real (main/variables/outputs.tf)
     └── monitoring/                # módulo real (main/variables/outputs.tf)
 ```
 
@@ -147,14 +154,20 @@ provider "azurerm" {
 | `acr_admin_enabled` | bool | `false` | Debe permanecer `false`; el acceso futuro es vía managed identity. |
 | `unique_suffix` | string | `""` | Sufijo opcional (3–8 alfanumérico minúscula) para nombres globales como ACR. |
 | `create_key_vault` | bool | `false` | Planeado — `modules/key_vault` es placeholder. |
-| `create_managed_identities` | bool | `false` | Planeado — `modules/managed_identities` es placeholder. |
+| `create_managed_identities` | bool | `false` | Habilita `module.managed_identities`. Requiere `create_resource_group=true` y `create_acr=true` (validado). |
 | `create_networking` | bool | `false` | Planeado — `modules/networking` es placeholder. |
 | `create_postgres` | bool | `false` | Planeado — `modules/postgres_flexible` es placeholder. |
 | `create_container_apps_environment` | bool | `false` | Habilita `module.container_apps_environment`. Requiere `create_resource_group=true` y `create_monitoring=true` (validado). |
-| `create_container_apps` | bool | `false` | Planeado — `modules/container_apps` es placeholder. |
+| `create_container_apps` | bool | `false` | Habilita `module.container_apps`. Requiere `create_resource_group=true`, `create_acr=true`, `create_container_apps_environment=true` y `create_managed_identities=true` (validado). |
 | `create_monitoring` | bool | `false` | Habilita `module.monitoring`. Requiere `create_resource_group=true` (validado). |
 | `log_analytics_sku` | string | `"PerGB2018"` | `Free` o `PerGB2018`. |
 | `log_analytics_retention_in_days` | number | `30` | Entre 30 y 730 días. |
+| `api_image_tag` | string | `"block-4.9"` | Tag de la imagen del backend ya publicada en ACR. |
+| `api_cpu` | number | `0.25` | CPU asignada a la Container App de la API. |
+| `api_memory` | string | `"0.5Gi"` | Memoria asignada a la Container App de la API. |
+| `api_min_replicas` | number | `0` | Mínimo de réplicas (permite scale-to-zero). |
+| `api_max_replicas` | number | `1` | Máximo de réplicas. |
+| `api_target_port` | number | `8000` | Puerto expuesto por el contenedor FastAPI. |
 
 ## 5.1. Modules layer
 
@@ -1099,10 +1112,112 @@ ninguna Container App todavía.
 
 `terraform destroy` **no se ha ejecutado** — ambos recursos siguen activos.
 
+## Block 4.12 — Container App Module Plan
+
+Status: **completed** (implementación y planificación; sin `apply`).
+
+Qué es la Managed Identity: una identidad de Azure AD asignada por el usuario (User Assigned)
+que la Container App usa para autenticarse contra servicios de Azure sin credenciales estáticas.
+Por qué se necesita `AcrPull`: el ACR tiene `admin_enabled=false` desde el Bloque 4.7/4.8, así
+que la Container App no puede hacer `pull` con usuario/contraseña; el rol `AcrPull` scoped al
+ACR le da permiso de lectura sobre el registro usando la identidad. Qué es la Container App:
+el recurso que ejecuta el contenedor de la API dentro del Container Apps Environment del Bloque
+4.11. Qué imagen se planea desplegar: `acrfittrackaidevdev01.azurecr.io/fittrack-api:block-4.9`
+(ya publicada en el Bloque 4.9).
+
+Por qué Managed Identity antes o junto con la Container App: la Container App necesita la
+identidad ya creada (con `AcrPull` ya asignado) para poder hacer `pull` de la imagen privada en
+su primera revisión. Por qué sólo `plan` y no `apply`: separa deliberadamente la implementación
+del módulo de la creación real de recursos, igual que en los Bloques 4.7 y 4.10.
+
+**Variables temporales de planificación:** el `module.container_apps` en `environments/dev/main.tf`
+pasa `env_vars` con `AI_PROVIDER = "fake"` (evita depender de Azure OpenAI en el primer deploy),
+`JWT_SECRET_KEY = "dev-only-placeholder-change-before-prod"`, y `DATABASE_URL =
+"postgresql+psycopg://placeholder:placeholder@placeholder:5432/fittrack"` (no existe PostgreSQL
+real todavía). Estos valores son visibles en el `plan` pero **no se crean en Azure** porque este
+bloque no ejecuta `apply`. No son aceptables para producción — un bloque futuro debe moverlos a
+Key Vault (`secretref:`) antes de aplicar este módulo.
+
+Cambios de archivos:
+
+- `modules/managed_identities/{main,variables,outputs}.tf` — nuevo módulo real; crea
+  `azurerm_user_assigned_identity` y `azurerm_role_assignment` (rol `AcrPull`, scope = ACR).
+- `modules/container_apps/{main,variables,outputs}.tf` — nuevo módulo real; crea únicamente
+  `azurerm_container_app` (identity `UserAssigned`, `registry` autenticado por esa identidad,
+  ingress externo, 100% tráfico a la última revisión, un `container` con `dynamic "env"`).
+- `environments/dev/variables.tf` — `create_managed_identities` ahora con dos validaciones
+  cruzadas (`create_resource_group`, `create_acr`); `create_container_apps` ahora con cuatro
+  validaciones cruzadas (`create_resource_group`, `create_acr`,
+  `create_container_apps_environment`, `create_managed_identities`); nuevas variables
+  `api_image_tag`, `api_cpu`, `api_memory`, `api_min_replicas`, `api_max_replicas`,
+  `api_target_port`.
+- `environments/dev/locals.tf` — nuevo local `api_identity_name =
+  "id-${var.project_name}-api-${var.environment}"` (reutiliza el `local.container_app_api_name`
+  ya existente desde el Bloque 4.3 para la Container App).
+- `environments/dev/main.tf` — `module "managed_identities"` y `module "container_apps"`
+  gateados por sus flags respectivos, con los placeholders de `env_vars` documentados.
+- `environments/dev/outputs.tf` — `managed_identities_enabled`, `api_identity_name`,
+  `api_identity_id`, `api_identity_client_id`, `container_apps_enabled`,
+  `api_container_app_name`, `api_container_app_id`, `api_container_app_url`,
+  `api_container_image` (todos seguros con los módulos desactivados).
+- `environments/dev/terraform.container-app.example.tfvars` — nuevo, previsualiza Resource
+  Group + ACR + Monitoring + Container Apps Environment + Managed Identity + Container App.
+
+Comandos de validación:
+
+```bash
+cd infra/terraform/azure/environments/dev
+terraform fmt -recursive -check
+terraform init
+terraform validate
+
+# Estado actual (Resource Group + ACR + Monitoring + CAE ya en state): sin cambios de recursos
+terraform plan -var-file="terraform.container-apps-env.example.tfvars"
+
+# + Managed Identity + AcrPull + Container App: 3 recursos nuevos
+terraform plan -var-file="terraform.container-app.example.tfvars"
+```
+
+### Resultados observados
+
+`terraform fmt -recursive -check`, `terraform init` (registra los dos módulos nuevos) y
+`terraform validate` (Terraform v1.13.5, `azurerm` v4.80.0) pasaron sin errores.
+
+Plan con `terraform.container-apps-env.example.tfvars` (los 4 recursos existentes ya en state):
+0 cambios de recursos — solo aparecen nuevos valores de output (`managed_identities_enabled =
+false`, `container_apps_enabled = false`, etc.) porque esos outputs no existían antes en el state.
+
+Plan con `terraform.container-app.example.tfvars`:
+
+```text
+# module.container_apps[0].azurerm_container_app.this will be created
+# module.managed_identities[0].azurerm_role_assignment.acr_pull will be created
+# module.managed_identities[0].azurerm_user_assigned_identity.this will be created
+
+Plan: 3 to add, 0 to change, 0 to destroy.
+```
+
+Únicos recursos nuevos: identidad `id-fittrack-ai-api-dev`, su role assignment `AcrPull`
+(scope = ACR del Bloque 4.8), y la Container App `ca-fittrack-ai-api-dev` (imagen
+`acrfittrackaidevdev01.azurecr.io/fittrack-api:block-4.9`). No aparece Key Vault, PostgreSQL,
+VNet/subnets, Storage, Container App Job, ni ACR/Resource Group nuevos.
+
+Backend (sin cambios de código): `uv run ruff check .` → `All checks passed!`. Se usó el
+Postgres local de `backend/docker-compose.yml` (servicio `db`, puerto 5433, ya estaba corriendo)
+y `uv run pytest` → `66 passed`.
+
+**No se ejecutó `terraform apply` ni `terraform destroy` en este bloque. No se creó ninguna
+Managed Identity, role assignment ni Container App reales. No se creó Key Vault, PostgreSQL ni
+networking privado. No se hizo push de una nueva imagen Docker.**
+
 ## Siguiente paso recomendado
 
-**Bloque 4.12 — Terraform Container App Module Plan**: implementar el módulo `container_apps`,
-crear el plan para desplegar la API como Azure Container App usando la imagen ya publicada
-(`acrfittrackaidevdev01.azurecr.io/fittrack-api:block-4.9`), mantener `create_container_apps=false`
-por defecto (sin `apply`), y resolver explícitamente la autenticación de Container Apps contra el
-ACR privado — vía Managed Identity + rol `AcrPull` (el admin user de ACR sigue en `false`).
+Dos rutas posibles después de este bloque:
+
+- **Opción A — Bloque 4.13: Terraform Container App Apply.** Aplicar los 3 recursos planeados
+  (Managed Identity + `AcrPull` + Container App) para que `GET /health` responda públicamente
+  desde Azure Container Apps. Limitación: usaría los placeholders temporales de `DATABASE_URL`
+  y `JWT_SECRET_KEY` — aceptable solo si se documenta explícitamente como demo/dev, no productivo.
+- **Opción B — Bloque 4.13: Key Vault + Secrets Plan.** Antes de aplicar la Container App,
+  implementar Key Vault y secrets reales para `JWT_SECRET_KEY` (y definir la estrategia futura
+  para `DATABASE_URL`), para no dejar ni siquiera placeholders en configuración aplicada.

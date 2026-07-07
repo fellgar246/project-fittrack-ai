@@ -19,6 +19,7 @@ locals {
   storage_account_name    = "st${local.normalized_project_name}${var.environment}"
   container_app_env_name  = "cae-${var.project_name}-${var.environment}"
   container_app_api_name  = "ca-${var.project_name}-api-${var.environment}"
+  api_identity_name       = "id-${var.project_name}-api-${var.environment}"
   postgres_server_name    = "psql-${var.project_name}-${var.environment}"
   postgres_database_name  = "fittrack_ai"
   log_analytics_workspace = "log-${var.project_name}-${var.environment}"

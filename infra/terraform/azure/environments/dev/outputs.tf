@@ -92,6 +92,51 @@ output "container_apps_environment_default_domain" {
   value       = one(module.container_apps_environment[*].default_domain)
 }
 
+output "managed_identities_enabled" {
+  description = "Whether the managed identities module is enabled."
+  value       = var.create_managed_identities
+}
+
+output "api_identity_name" {
+  description = "API managed identity name when created, otherwise the planned name."
+  value       = coalesce(one(module.managed_identities[*].name), local.api_identity_name)
+}
+
+output "api_identity_id" {
+  description = "API managed identity resource ID when created. Null when disabled."
+  value       = one(module.managed_identities[*].id)
+}
+
+output "api_identity_client_id" {
+  description = "API managed identity client ID when created. Null when disabled."
+  value       = one(module.managed_identities[*].client_id)
+}
+
+output "container_apps_enabled" {
+  description = "Whether the Container Apps module is enabled."
+  value       = var.create_container_apps
+}
+
+output "api_container_app_name" {
+  description = "API Container App name when created, otherwise the planned name."
+  value       = coalesce(one(module.container_apps[*].name), local.container_app_api_name)
+}
+
+output "api_container_app_id" {
+  description = "API Container App resource ID when created. Null when disabled."
+  value       = one(module.container_apps[*].id)
+}
+
+output "api_container_app_url" {
+  description = "API Container App public URL when created. Null when disabled."
+  value       = one(module.container_apps[*].url)
+}
+
+output "api_container_image" {
+  description = "Container image planned for the API, regardless of whether the ACR or Container App modules are enabled."
+  value       = "${local.acr_name}.azurecr.io/fittrack-api:${var.api_image_tag}"
+}
+
 output "planned_modules" {
   description = "Planned Terraform modules for future Azure services, in dependency order."
   value = [
