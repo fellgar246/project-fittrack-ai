@@ -1,8 +1,7 @@
 # Module: key_vault
 
-**Status:** implemented in Block 4.14 — gated by `create_key_vault` (default `false`) in
-`environments/dev`. Only `terraform plan` has been validated in Block 4.14; **`terraform apply`
-is deferred to Block 4.15.**
+**Status:** implemented and applied in Block 4.15 — gated by `create_key_vault` (default `false`,
+set to `true` in `terraform.key-vault.example.tfvars`) in `environments/dev`.
 
 ## Purpose
 
@@ -82,5 +81,18 @@ policies, Azure OpenAI real configuration.
 ## Related blocks
 
 - **Block 4.13** — Container App live with plain env var placeholders (acceptable for `/health` only).
-- **Block 4.14** — This module implemented; plan-only, no apply.
-- **Block 4.15** — Authorized `terraform apply` to create Key Vault and wire Container App secrets.
+- **Block 4.14** — Module implemented; plan validated, no apply.
+- **Block 4.15** — Apply completed: Key Vault, secrets, and Container App secret wiring live in Azure.
+
+## Rollback Key Vault secret wiring
+
+To revert to the previous Container App demo state and destroy Key Vault resources:
+
+```bash
+cd infra/terraform/azure/environments/dev
+terraform plan -var-file="terraform.container-app.example.tfvars"
+terraform apply -var-file="terraform.container-app.example.tfvars"
+```
+
+Expected result: `Plan: 0 to add, 1 to change, 4 to destroy`. Do not run unless intentionally
+rolling back Block 4.15.

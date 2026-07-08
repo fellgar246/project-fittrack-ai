@@ -60,14 +60,18 @@ Este documento cubre cuatro bloques:
   RBAC, extiende `container_apps` para secret references desde Key Vault, y valida el plan con
   `terraform.key-vault.example.tfvars` — **sin `terraform apply`**. Ver la sección
   [Block 4.14](#block-414--key-vault--container-app-secrets-plan) más abajo.
+- **Bloque 4.15 — Key Vault Apply + Container App Secret Wiring**: ejecuta el `terraform apply`
+  autorizado que crea Key Vault, secretos demo y actualiza la Container App a secret references.
+  Ver la sección [Block 4.15](#block-415--key-vault-apply--container-app-secret-wiring) más abajo.
 
 **Los bloques 4.3, 4.4, 4.5, 4.7, 4.10, 4.12 y 4.14 no crean ningún recurso de Azure ni ejecutan
 `terraform apply`.** Con todas las banderas `create_*` en `false` (default de
 `terraform.tfvars.example`), `terraform plan` no agrega ni cambia ningún recurso — solo calcula
-los outputs informativos. Los bloques 4.6, 4.8, 4.11 y 4.13 son, hasta ahora, los únicos que han
+los outputs informativos. Los bloques 4.6, 4.8, 4.11, 4.13 y 4.15 son, hasta ahora, los únicos que han
 ejecutado un `apply` real: el 4.6 creó el Resource Group, el 4.8 el Azure Container Registry, el
-4.11 el Log Analytics Workspace y el Container Apps Environment, y el 4.13 la Managed Identity,
-el role assignment `AcrPull` y la Container App de la API.
+4.11 el Log Analytics Workspace y el Container Apps Environment, el 4.13 la Managed Identity,
+el role assignment `AcrPull` y la Container App de la API, y el 4.15 Key Vault, secretos demo y
+el wiring de secret references en la Container App.
 
 ## 2. Estructura creada
 
@@ -1477,12 +1481,149 @@ wiring existen solo en código y en el plan de previsualización.
 El Terraform runner que ejecute el apply del Block 4.15 necesitará permisos para crear secretos
 (p. ej. **Key Vault Secrets Officer**). La Managed Identity de la API solo puede **leer** secretos.
 
+## Block 4.15 — Key Vault Apply + Container App Secret Wiring
+
+Status: **completed**.
+
+### Objetivo
+
+Ejecutar el `terraform apply` autorizado para crear y conectar la capa de secretos en Azure:
+
+```text
+Container App → Managed Identity → Key Vault (RBAC) → secret references
+```
+
+### Recursos creados
+
+- Azure Key Vault (`kvfittrackaidevdev01`) con RBAC habilitado
+- Role assignment `Key Vault Secrets User` para la Managed Identity de la API
+- Key Vault secret: `JWT-SECRET-KEY` (demo placeholder)
+- Key Vault secret: `DATABASE-URL` (demo placeholder)
+
+### Recursos actualizados
+
+- Azure Container App (`ca-fittrack-ai-api-dev`) — `JWT_SECRET_KEY` y `DATABASE_URL` ahora se
+  consumen vía Key Vault-backed secret references (`jwt-secret-key`, `database-url`)
+
+### Terraform state (post-apply)
+
+```text
+module.resource_group[0].azurerm_resource_group.this
+module.acr[0].azurerm_container_registry.this
+module.monitoring[0].azurerm_log_analytics_workspace.this
+module.container_apps_environment[0].azurerm_container_app_environment.this
+module.managed_identities[0].azurerm_user_assigned_identity.this
+module.managed_identities[0].azurerm_role_assignment.acr_pull
+module.key_vault[0].azurerm_key_vault.this
+module.key_vault[0].azurerm_role_assignment.api_secrets_user
+module.key_vault[0].azurerm_key_vault_secret.this["JWT-SECRET-KEY"]
+module.key_vault[0].azurerm_key_vault_secret.this["DATABASE-URL"]
+module.container_apps[0].azurerm_container_app.this
+```
+
+### Comandos ejecutados
+
+```bash
+cd infra/terraform/azure/environments/dev
+terraform fmt -recursive -check
+terraform init
+terraform validate
+terraform plan -var-file="terraform.key-vault.example.tfvars"
+terraform apply -var-file="terraform.key-vault.example.tfvars"   # confirmado manualmente con "yes"
+```
+
+No se usó `-auto-approve`.
+
+### Resultado del plan (pre-apply)
+
+```text
+Plan: 4 to add, 1 to change, 0 to destroy.
+```
+
+### Resultado del apply
+
+El apply se completó en dos pasos: el primero creó Key Vault + role assignment; el segundo, tras
+asignar **Key Vault Secrets Officer** al usuario Terraform (requerido por RBAC para crear secretos),
+completó secretos + update de Container App.
+
+Resultado final acumulado:
+
+```text
+Apply complete! Resources: 4 added, 1 changed, 0 destroyed.
+```
+
+### Permisos del Terraform runner
+
+El primer intento de apply falló al crear `azurerm_key_vault_secret` con `403 ForbiddenByRbac`:
+el usuario que ejecuta Terraform no tenía permisos para `secrets/getSecret/action`. Se resolvió
+asignando **Key Vault Secrets Officer** al usuario en el scope del vault — **sin cambiar a access
+policies legacy**. La Managed Identity de la API sigue con solo **Key Vault Secrets User**.
+
+### Verificación
+
+- Key Vault verificado con Azure CLI (`rbacAuthorization: true`)
+- Nombres de secretos verificados (`DATABASE-URL`, `JWT-SECRET-KEY`) — **valores no expuestos**
+- Role assignment `Key Vault Secrets User` verificado para la MI de la API
+- Container App: `provisioningState=Succeeded`, revisión `ca-fittrack-ai-api-dev--0000001`
+- `/health` HTTP 200:
+
+```text
+https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io/health
+```
+
+```json
+{"status":"ok","service":"fittrack-ai-api","version":"0.1.0"}
+```
+
+- Logs sin errores de Key Vault reference resolution ni crash loop
+- Plan post-apply: sin cambios en infraestructura real (solo drift posible en output
+  `api_container_app_url` por nueva revisión)
+
+Backend (sin cambios de código): `uv run ruff check .` → `All checks passed`. `uv run pytest`
+→ `66 passed`.
+
+### Decisiones técnicas
+
+1. Key Vault se aplica después del health check demo para endurecer el manejo de secretos.
+2. Se usa RBAC y `Key Vault Secrets User` — la API no recibe permisos administrativos.
+3. Se verifican nombres de secretos, nunca valores.
+4. `DATABASE_URL` sigue siendo placeholder hasta Azure PostgreSQL (Block 4.16+).
+5. `JWT_SECRET_KEY` es demo/dev — cambiar antes de producción.
+6. `AI_PROVIDER=fake` sigue como env var no sensible.
+7. Container App usa Key Vault-backed secret references.
+8. No se creó PostgreSQL, networking privado ni Azure OpenAI real.
+9. No se usó `-auto-approve`.
+10. No se migró a access policies legacy.
+
+### Importante
+
+Los valores actuales de secretos son **demo/dev placeholders**, no production-ready.
+`DATABASE_URL` sigue apuntando a un host placeholder hasta que exista Azure PostgreSQL.
+
+### Rollback Key Vault secret wiring
+
+Para revertir al estado demo anterior (env vars planos) y destruir recursos de Key Vault:
+
+```bash
+cd infra/terraform/azure/environments/dev
+terraform plan -var-file="terraform.container-app.example.tfvars"
+terraform apply -var-file="terraform.container-app.example.tfvars"
+```
+
+Resultado esperado:
+
+```text
+Plan: 0 to add, 1 to change, 4 to destroy.
+```
+
+Esto eliminaría Key Vault, secretos y role assignment, y restauraría env vars planos en la
+Container App. **No ejecutar salvo rollback intencional.**
+
 ## Siguiente paso recomendado
 
-Continuar con **Bloque 4.15 — Key Vault Apply + Container App Secret Wiring**:
+Continuar con **Bloque 4.16 — PostgreSQL Flexible Server Module Plan**:
 
-- Ejecutar `terraform apply -var-file="terraform.key-vault.example.tfvars"` (autorizado).
-- Verificar Key Vault y secretos con Azure CLI (sin exponer valores).
-- Confirmar que `/health` sigue respondiendo HTTP 200.
-- Confirmar `terraform plan` sin cambios post-apply.
-- Preparar Block 4.16+ (Azure PostgreSQL + `DATABASE_URL` real).
+- Implementar el módulo `postgres_flexible` (hoy placeholder).
+- Planear Azure Database for PostgreSQL Flexible Server + base de datos `fittrack_ai`.
+- Preparar estrategia para reemplazar `DATABASE_URL` placeholder por URL real (vía Key Vault).
+- Mantener `create_postgres=false` por defecto — plan-only, sin apply inicialmente.

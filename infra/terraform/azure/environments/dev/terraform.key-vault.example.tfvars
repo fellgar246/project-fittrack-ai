@@ -3,7 +3,7 @@
 # Usage:
 #   terraform plan -var-file="terraform.key-vault.example.tfvars"
 #
-# Do not run terraform apply in Block 4.14.
+# Do not run terraform apply unless authorized (Block 4.15 apply already completed).
 # Do not include real production secrets in this file.
 
 project_name  = "fittrack-ai"

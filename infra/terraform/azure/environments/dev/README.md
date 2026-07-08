@@ -24,7 +24,7 @@ terraform plan -var-file="terraform.container-apps-env.example.tfvars"
 # Escenario 5 — + Managed Identity + AcrPull + Container App (0 recursos a crear: los 3 ya están en state desde el Bloque 4.13)
 terraform plan -var-file="terraform.container-app.example.tfvars"
 
-# Escenario 6 — + Key Vault + Container App secret wiring (plan-only; no apply en Block 4.14)
+# Escenario 6 — + Key Vault + Container App secret wiring (0 recursos a crear: todos ya están en state desde el Bloque 4.15)
 terraform plan -var-file="terraform.key-vault.example.tfvars"
 ```
 
@@ -122,6 +122,14 @@ terraform plan -var-file="terraform.key-vault.example.tfvars"
   (`terraform.key-vault.example.tfvars`) el plan muestra Key Vault, role assignment, secretos demo y
   update in-place de la Container App. Ver la sección "Block 4.14" en
   [`../../README.md`](../../README.md) para el detalle completo.
+- **Bloque 4.15**: `terraform apply -var-file="terraform.key-vault.example.tfvars"` ya se ejecutó
+  y creó Key Vault (`kvfittrackaidevdev01`), el role assignment `Key Vault Secrets User`, los
+  secretos demo (`JWT-SECRET-KEY`, `DATABASE-URL`) y actualizó la Container App para consumir
+  secret references. El state ahora contiene 11 recursos. El Escenario 6 de arriba muestra
+  `No changes` en infraestructura real. `/health` sigue respondiendo HTTP 200. Ver la sección
+  "Block 4.15" en [`../../README.md`](../../README.md) para el detalle completo, incluyendo el
+  prerrequisito de permisos `Key Vault Secrets Officer` para el Terraform runner y el rollback
+  controlado.
 - `terraform plan` requiere una sesión de Azure activa (`az login`) o `ARM_SUBSCRIPTION_ID`
   exportada — el provider `azurerm` construye un authorizer al configurarse aunque los flags
   `create_*` estén en `false` y no vaya a crear ningún recurso. `terraform validate` y

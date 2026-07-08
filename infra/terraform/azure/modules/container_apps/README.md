@@ -1,9 +1,9 @@
 # Module: container_apps
 
-**Status:** implemented and applied in Block 4.13 — extended in Block 4.14 with Key Vault secret
-support (plan validated; secret wiring apply deferred to Block 4.15). Gated by
-`create_container_apps` (default `false`, set to `true` in `terraform.container-app.example.tfvars`)
-in `environments/dev`.
+**Status:** implemented and applied in Block 4.13 — Key Vault secret wiring applied in Block 4.15.
+Gated by `create_container_apps` (default `false`, set to `true` in
+`terraform.container-app.example.tfvars` or `terraform.key-vault.example.tfvars`) in
+`environments/dev`.
 
 ## Purpose
 
@@ -83,21 +83,17 @@ This module creates **only** `azurerm_container_app`, with:
 - Top-level `dynamic "secret"` blocks for Key Vault references or inline values
 - Container `dynamic "env"` for plain vars and secret-backed vars
 
-### Block 4.13 (current live deployment)
+### Block 4.15 (current live deployment with Key Vault)
 
-With `create_key_vault=false` (default), `environments/dev/main.tf` keeps plain env vars for
-`JWT_SECRET_KEY` and `DATABASE_URL` — identical to the Block 4.13 apply, so
-`terraform plan -var-file="terraform.container-app.example.tfvars"` shows **No changes**.
+With `create_key_vault=true` (`terraform.key-vault.example.tfvars`), the Container App consumes
+`JWT_SECRET_KEY` and `DATABASE_URL` via Key Vault-backed secret references. `AI_PROVIDER=fake`
+remains a plain env var. Demo placeholder secret values live in Key Vault — not production-ready.
 
-### Block 4.14 (Key Vault plan)
+Health endpoint (canonical FQDN):
 
-With `create_key_vault=true` (`terraform.key-vault.example.tfvars`), the plan shows:
-
-- New Key Vault + secrets + RBAC role assignment
-- In-place update of the Container App: move sensitive vars from plain `env` to Key Vault-backed
-  `secret` + `secret_name` refs
-
-`AI_PROVIDER=fake` remains a plain env var (not sensitive).
+```text
+https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io/health
+```
 
 Out of scope: Container App Jobs, Dapr, custom domains, certificates. Alembic migrations remain
 a separate step, never run at container startup.
@@ -124,5 +120,5 @@ https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io/h
 
 ## Current limitations
 
-Demo/dev deployment. Plaintext placeholders for `JWT_SECRET_KEY` and `DATABASE_URL` until Block
-4.15 applies Key Vault wiring. Real PostgreSQL and production-grade secrets come in later blocks.
+Demo/dev deployment. Secret values in Key Vault are placeholders. Real PostgreSQL and
+production-grade secrets come in Block 4.16+.
