@@ -1629,13 +1629,74 @@ Container App. **No ejecutar salvo rollback intencional.**
 
 ## Siguiente paso recomendado
 
-Continuar con **Bloque 4.18 — Azure PostgreSQL Alembic Migration Plan**:
+Continuar con **Bloque 4.19 — Container App Database Runtime Verification**:
 
-- Agregar firewall rule temporal para IP local o estrategia segura de conexión.
-- Ejecutar `uv run alembic upgrade head` contra Azure PostgreSQL.
-- Verificar tablas creadas y probar endpoints funcionales mínimos.
-- Confirmar que la API puede operar con PostgreSQL real.
-- Documentar estrategia de migraciones para portfolio.
+- Habilitar conectividad Container App → PostgreSQL (firewall para egress IP o networking privado).
+- Verificar que la API en cloud arranca y usa `DATABASE-URL` real.
+- Agregar readiness check de DB si aplica.
+- Flujo auth mínimo contra PostgreSQL cloud.
+- Sin re-ejecutar migraciones (ya aplicadas en Block 4.18).
+
+## Block 4.18 — Azure PostgreSQL Alembic Migration
+
+Status: **completed**.
+
+### Objetivo
+
+Ejecutar la primera migración Alembic contra Azure PostgreSQL de forma segura, verificar el
+esquema creado, y documentar el proceso repetible — sin exponer credenciales ni modificar
+Container App.
+
+### Alcance completado
+
+1. Servidor manual `psql-test-centralus` eliminado (no gestionado por Terraform).
+2. Regla firewall temporal `temp-local-alembic` creada vía Azure CLI (IP local única).
+3. `DATABASE_URL` cargado desde Key Vault (`kvfittrackaidevdev01`) sin imprimir el valor.
+4. `uv run alembic upgrade head` ejecutado contra `psql-fittrack-ai-pg-dev01` / `fittrack_ai`.
+5. 9 tablas verificadas en Azure PostgreSQL.
+6. Validación API local contra DB cloud: `/health` 200, `POST /auth/register` 201,
+   `POST /auth/login` 200 (usuario demo `demo-cloud-migration@example.com`).
+7. Regla firewall temporal eliminada.
+8. Terraform plan final: `No changes`.
+9. `/health` cloud: HTTP 200 (sin cambios en Container App).
+10. Documentación actualizada.
+
+### Decisiones técnicas
+
+1. **Firewall temporal vía Azure CLI**, no Terraform — mantiene `postgres_allowed_firewall_rules = {}`
+   y evita drift en `terraform plan`.
+2. **`DATABASE_URL` desde Key Vault** — fuente de verdad post-Block 4.17; no usar outputs sensibles
+   en logs.
+3. **Fix mínimo en `alembic/env.py`** — escapar `%` en URLs con passwords URL-encoded
+   (`replace("%", "%%")`) para compatibilidad con ConfigParser de Alembic.
+4. **Sin cambios en Container App** — imagen, secrets y runtime sin modificar.
+5. **Private networking diferido** — aceptable para dev/portfolio; hardening en bloque futuro.
+6. **Container App aún no conecta a PostgreSQL** — esperado; `/health` no valida DB. Block 4.19.
+
+### Tablas creadas en Azure PostgreSQL
+
+`ai_recommendations`, `alembic_version`, `body_measurements`, `exercises`, `nutrition_logs`,
+`users`, `workout_days`, `workout_logs`, `workout_plans` (HEAD: `f16d4cefefc2`).
+
+### Cómo repetir migraciones futuras
+
+```text
+1. Obtener IP pública actual (curl https://api.ipify.org)
+2. Crear regla firewall temporal vía Azure CLI o postgres_allowed_firewall_rules + terraform apply
+3. export DATABASE_URL desde Key Vault (sin imprimir el valor)
+4. cd backend && uv run alembic upgrade head
+5. Verificar tablas en information_schema
+6. Eliminar regla firewall temporal
+7. terraform plan -var-file="terraform.postgres.example.tfvars" → No changes
+```
+
+### Verificación post-migración
+
+- PostgreSQL: `state=Ready`, version 16, DB `fittrack_ai`.
+- Key Vault: `DATABASE-URL` enabled (metadata only).
+- Firewall: sin reglas externas tras cleanup.
+- Backend: `uv run ruff check .` limpio; `uv run pytest` 66 passed.
+- No se ejecutó `terraform destroy`. No se expusieron secretos.
 
 ## Block 4.16 — PostgreSQL Flexible Server Module Plan
 

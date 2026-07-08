@@ -141,6 +141,12 @@ terraform plan -var-file="terraform.postgres.example.tfvars"
   `fittrack_ai`) y (2) actualizar secreto `DATABASE-URL` en Key Vault con wiring Terraform.
   El Escenario 7 de arriba muestra `No changes`. `/health` sigue HTTP 200. Alembic no se
   ejecutó. Ver la sección "Block 4.17" en [`../../README.md`](../../README.md).
+- **Bloque 4.18**: Alembic ejecutado contra Azure PostgreSQL. Servidor manual
+  `psql-test-centralus` eliminado. Regla firewall temporal `temp-local-alembic` (Azure CLI,
+  IP local única) creada y removida. `DATABASE_URL` cargado desde Key Vault sin exponer
+  valor. 9 tablas verificadas. API local validada contra DB cloud. Terraform plan final:
+  `No changes`. `/health` cloud HTTP 200. Ver sección "Block 4.18" en
+  [`../../README.md`](../../README.md).
 - `terraform plan` requiere una sesión de Azure activa (`az login`) o `ARM_SUBSCRIPTION_ID`
   exportada — el provider `azurerm` construye un authorizer al configurarse aunque los flags
   `create_*` estén en `false` y no vaya a crear ningún recurso. `terraform validate` y

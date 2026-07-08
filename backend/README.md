@@ -326,6 +326,46 @@ uv run alembic revision --autogenerate -m "descripcion"
 uv run alembic upgrade head
 ```
 
+### Azure PostgreSQL (Block 4.18 — completed)
+
+La primera migración contra Azure PostgreSQL (`psql-fittrack-ai-pg-dev01`, DB `fittrack_ai`,
+región `centralus`) se ejecutó con firewall temporal vía Azure CLI y `DATABASE_URL` desde
+Key Vault. Proceso seguro para dev/portfolio:
+
+```bash
+# 1. Regla firewall temporal (IP local única — reemplazar <YOUR_PUBLIC_IP>)
+az postgres flexible-server firewall-rule create \
+  --resource-group rg-fittrack-ai-dev \
+  --server-name psql-fittrack-ai-pg-dev01 \
+  --name temp-local-alembic \
+  --start-ip-address "<YOUR_PUBLIC_IP>" \
+  --end-ip-address "<YOUR_PUBLIC_IP>"
+
+# 2. Cargar DATABASE_URL desde Key Vault (no imprimir el valor)
+export DATABASE_URL="$(az keyvault secret show \
+  --vault-name kvfittrackaidevdev01 --name DATABASE-URL --query value --output tsv)"
+test -n "$DATABASE_URL" && echo "DATABASE_URL loaded"
+
+# 3. Aplicar migraciones
+uv run alembic upgrade head
+
+# 4. Eliminar regla firewall
+az postgres flexible-server firewall-rule delete \
+  --resource-group rg-fittrack-ai-dev \
+  --server-name psql-fittrack-ai-pg-dev01 \
+  --name temp-local-alembic --yes
+```
+
+**Tablas en Azure tras `upgrade head`:** `users`, `workout_plans`, `workout_days`, `exercises`,
+`workout_logs`, `nutrition_logs`, `body_measurements`, `ai_recommendations`, `alembic_version`.
+
+**Notas:**
+
+- `alembic/env.py` escapa `%` en URLs con passwords URL-encoded (Azure Key Vault).
+- No ejecutar migraciones al arranque del contenedor (evita race conditions con réplicas).
+- Private networking para PostgreSQL queda para un bloque de hardening futuro.
+- La Container App en cloud aún no valida conectividad DB en `/health` — Block 4.19.
+
 Las migraciones de estos bloques (`workout_plans`/`workout_days`/`exercises` en 2.3,
 `workout_logs` en 2.4, `nutrition_logs` en 2.5, `body_measurements` en 2.6) ya están
 generadas y versionadas en `alembic/versions/`; solo hace falta aplicarlas:
@@ -338,7 +378,8 @@ Verificar que las tablas existen:
 
 ```bash
 docker compose exec db psql -U fittrack -d fittrack -c "\dt"
-# debe listar: users, workout_plans, workout_days, exercises, workout_logs, nutrition_logs, body_measurements, alembic_version
+# debe listar: users, workout_plans, workout_days, exercises, workout_logs,
+# nutrition_logs, body_measurements, ai_recommendations, alembic_version
 
 docker compose exec db psql -U fittrack -d fittrack -c "\d workout_logs"
 # debe mostrar columnas, FKs a users/exercises, e índices en user_id, exercise_id y performed_at

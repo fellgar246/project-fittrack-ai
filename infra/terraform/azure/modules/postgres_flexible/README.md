@@ -1,7 +1,8 @@
 # Module: postgres_flexible
 
-**Status:** implemented in Block 4.16 — applied in Block 4.17 — gated by `create_postgres`
-(default `false`, set to `true` in `terraform.postgres.example.tfvars`) in `environments/dev`.
+**Status:** implemented in Block 4.16 — applied in Block 4.17 — Alembic migrated in Block 4.18
+— gated by `create_postgres` (default `false`, set to `true` in `terraform.postgres.example.tfvars`)
+in `environments/dev`.
 
 ## Purpose
 
@@ -85,12 +86,47 @@ additional users, extensions, migration jobs, Alembic execution.
 Enabled by `var.create_postgres` (default `false`). Requires `create_resource_group=true`
 and `create_key_vault=true` (enforced by validations in `environments/dev/variables.tf`).
 
-Alembic migrations against this server are a separate, explicit step (Block 4.18+).
+Alembic migrations against this server are a separate, explicit step. Block 4.18 applied all
+7 migrations (`upgrade head` → `f16d4cefefc2`); 9 tables now exist in `fittrack_ai`.
+
+### Block 4.18 — Alembic migration (completed)
+
+- Firewall rule `temp-local-alembic` added via Azure CLI (single local IP), not Terraform.
+- `DATABASE_URL` retrieved from Key Vault; password and connection string never exposed.
+- Rule removed after migration; `postgres_allowed_firewall_rules = {}` unchanged in Terraform.
+- Private networking deferred to a future hardening block.
+
+To repeat migrations safely:
+
+```bash
+# 1. Add temporary firewall rule for your public IP (Azure CLI example)
+az postgres flexible-server firewall-rule create \
+  --resource-group rg-fittrack-ai-dev \
+  --server-name psql-fittrack-ai-pg-dev01 \
+  --name temp-local-alembic \
+  --start-ip-address "<YOUR_PUBLIC_IP>" \
+  --end-ip-address "<YOUR_PUBLIC_IP>"
+
+# 2. Load DATABASE_URL from Key Vault (do not echo the value)
+export DATABASE_URL="$(az keyvault secret show \
+  --vault-name kvfittrackaidevdev01 --name DATABASE-URL --query value --output tsv)"
+test -n "$DATABASE_URL" && echo "DATABASE_URL loaded"
+
+# 3. Run migrations
+cd backend && uv run alembic upgrade head
+
+# 4. Remove temporary firewall rule
+az postgres flexible-server firewall-rule delete \
+  --resource-group rg-fittrack-ai-dev \
+  --server-name psql-fittrack-ai-pg-dev01 \
+  --name temp-local-alembic --yes
+```
 
 ## Related blocks
 
 - **Block 4.16** — Module implemented; plan validated, no apply.
 - **Block 4.17** — Apply completed: PostgreSQL server, database, and Key Vault `DATABASE-URL` wiring.
+- **Block 4.18** — Alembic `upgrade head` applied; schema verified in Azure PostgreSQL.
 
 ## Teardown (future, do not run casually)
 

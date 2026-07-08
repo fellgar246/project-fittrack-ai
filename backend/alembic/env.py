@@ -21,7 +21,8 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Override the .ini URL with the one from app settings (.env) — single source of truth.
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# Escape % for ConfigParser; Azure/Key Vault URLs often contain URL-encoded passwords.
+config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
 
 target_metadata = Base.metadata
 
