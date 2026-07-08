@@ -41,8 +41,10 @@ acr_admin_enabled = false
 log_analytics_sku               = "PerGB2018"
 log_analytics_retention_in_days = 30
 
-# Image already published to ACR by Block 4.9.
-api_image_tag    = "block-4.9"
+# Block 4.9 pushed a linux/arm64 image (built on Apple Silicon without
+# --platform), which Azure Container Apps rejects (requires linux/amd64).
+# Block 4.13 rebuilt and pushed a linux/amd64 image under this tag.
+api_image_tag    = "block-4.13-amd64"
 api_cpu          = 0.25
 api_memory       = "0.5Gi"
 api_min_replicas = 0

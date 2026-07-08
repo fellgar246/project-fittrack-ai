@@ -79,6 +79,23 @@ module "managed_identities" {
   tags                = local.common_tags
 }
 
+# Block 4.13 — AcrPull is granted via azurerm_role_assignment, but Azure AD/RBAC
+# propagation is eventually consistent: the role assignment API call can report
+# "complete" before the permission is actually usable for an image pull. The
+# Container App module only references module.managed_identities[0].id (the
+# identity resource), so Terraform has no implicit dependency on the role
+# assignment and creates both in parallel — the first apply attempt hit exactly
+# this race (ContainerAppOperationError: unable to pull image using Managed
+# identity). This explicit wait after the full managed_identities module
+# (identity + AcrPull role assignment) gives RBAC time to propagate before the
+# Container App tries to pull the image.
+resource "time_sleep" "wait_for_acr_pull_propagation" {
+  count = var.create_container_apps ? 1 : 0
+
+  depends_on      = [module.managed_identities]
+  create_duration = "60s"
+}
+
 # Block 4.12 — the FitTrack AI API itself. Gated behind create_container_apps
 # (default false); its validations in variables.tf guarantee create_resource_group,
 # create_acr, create_container_apps_environment, and create_managed_identities are
@@ -86,6 +103,8 @@ module "managed_identities" {
 module "container_apps" {
   source = "../../modules/container_apps"
   count  = var.create_container_apps ? 1 : 0
+
+  depends_on = [time_sleep.wait_for_acr_pull_propagation]
 
   name                         = local.container_app_api_name
   resource_group_name          = module.resource_group[0].name

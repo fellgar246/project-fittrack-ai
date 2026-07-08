@@ -1,8 +1,8 @@
 # Module: container_apps
 
-**Status:** implemented (Block 4.12) — gated by `create_container_apps` (default
-`false`) in `environments/dev`. No `terraform apply` has been run for this module
-yet; only `terraform plan` has been validated.
+**Status:** implemented and applied in Block 4.13 — gated by `create_container_apps`
+(default `false`, set to `true` in `terraform.container-app.example.tfvars`) in
+`environments/dev`. `terraform apply` has been run and the Container App is live.
 
 ## Purpose
 
@@ -52,22 +52,76 @@ identity (no admin username/password), external `ingress` with 100% traffic to t
 latest revision, and a single `container` block with a `dynamic "env"` over
 `var.env_vars`.
 
-**Planning-only placeholders:** `environments/dev/main.tf` wires this module with
-`AI_PROVIDER=fake`, and placeholder values for `JWT_SECRET_KEY` and `DATABASE_URL`.
-These are visible in plan output but are **not created in Azure** because this
-block does not run `terraform apply`. They are acceptable only as dev/demo
-placeholders — a future block must move real secrets to Key Vault (via
-`secretref:` env vars) before any real `apply` of this module. `AI_PROVIDER=fake`
-lets the API start without a live Azure OpenAI dependency, and no real PostgreSQL
-exists yet, so an early deploy would only be expected to serve `GET /health`.
+**Dev/demo placeholders (now applied):** `environments/dev/main.tf` wires this
+module with `AI_PROVIDER=fake`, and placeholder values for `JWT_SECRET_KEY` and
+`DATABASE_URL`. As of Block 4.13 these values **are live in Azure** as plain
+Container App env vars — they are acceptable only for validating `GET /health` on
+a dev/demo deployment, not for real application flows. A future block (4.14) must
+move real secrets to Key Vault (via `secretref:` env vars) before enabling any
+real database or AI traffic. `AI_PROVIDER=fake` lets the API start without a live
+Azure OpenAI dependency, and no real PostgreSQL exists yet.
 
 Out of scope for this module: Container App Jobs, Dapr, custom domains,
 certificates, and secret-backed env vars (`secrets` block) — deferred until Key
 Vault exists. Alembic migrations remain a separate step, never run at container
 startup.
 
-## Block 4.12 scope
+## Status
 
-Module implemented and wired behind `create_container_apps` (default `false`).
-Only `terraform plan` was validated — see [`../../README.md`](../../README.md) for
-the plan scenario. `terraform apply` is deferred to a future block.
+Implemented and applied in Block 4.13.
+
+This module currently deploys the FitTrack AI FastAPI backend as an Azure
+Container App using:
+
+- external ingress
+- private ACR image
+- user-assigned managed identity
+- AcrPull-based registry authentication
+- dynamic environment variables
+- single-revision mode
+
+## Current deployed API
+
+Container App:
+
+```text
+ca-fittrack-ai-api-dev
+```
+
+Image:
+
+```text
+acrfittrackaidevdev01.azurecr.io/fittrack-api:block-4.13-amd64
+```
+
+Health endpoint:
+
+```text
+https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io/health
+```
+
+Validation:
+
+```json
+{"status":"ok","service":"fittrack-ai-api","version":"0.1.0"}
+```
+
+## Current limitations
+
+This is a demo/dev deployment.
+
+The current Container App still uses placeholder environment values for:
+
+- `DATABASE_URL`
+- `JWT_SECRET_KEY`
+- `AI_PROVIDER=fake`
+
+These values are acceptable only for validating `/health`.
+
+Before enabling real API flows, the project must add:
+
+- Key Vault
+- real secret management
+- Azure PostgreSQL
+- secure `DATABASE_URL`
+- production-grade JWT secret handling

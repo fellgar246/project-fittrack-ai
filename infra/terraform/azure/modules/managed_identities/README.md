@@ -1,8 +1,9 @@
 # Module: managed_identities
 
-**Status:** implemented (Block 4.12) — gated by `create_managed_identities` (default
-`false`) in `environments/dev`. No `terraform apply` has been run for this module
-yet; only `terraform plan` has been validated.
+**Status:** implemented and applied in Block 4.13 — gated by
+`create_managed_identities` (default `false`, set to `true` in
+`terraform.container-app.example.tfvars`) in `environments/dev`. `terraform apply`
+has been run and both resources exist in Azure.
 
 ## Purpose
 
@@ -44,12 +45,32 @@ This module creates exactly two resources: `azurerm_user_assigned_identity` and
 `azurerm_role_assignment` (role `AcrPull`, scoped to `var.acr_id`). No Key Vault
 access policy, no other role assignments, and no identity for any component other
 than the API are created here. `skip_service_principal_aad_check` is intentionally
-not set — it exists to work around AAD propagation delays for identities created
-moments earlier in the same apply, which isn't a concern for a plan-only block; it
-can be added later if a real `apply` hits propagation timing issues.
+not set on the role assignment. The real Block 4.13 apply did hit AAD propagation
+timing: pulling the image right after the role assignment was created failed with
+`ContainerAppOperationError: unable to pull image using Managed identity`. Rather
+than setting `skip_service_principal_aad_check` here, `environments/dev/main.tf`
+adds a `time_sleep` resource (60s) between this module and `container_apps`,
+keeping the propagation workaround at the environment level instead of baking it
+into the module.
 
-## Block 4.12 scope
+## Status
 
-Module implemented and wired behind `create_managed_identities` (default `false`).
-Only `terraform plan` was validated — see [`../../README.md`](../../README.md) for
-the plan scenario. `terraform apply` is deferred to a future block.
+Implemented and applied in Block 4.13.
+
+This module creates:
+
+- User Assigned Managed Identity for the API
+- AcrPull role assignment over the private Azure Container Registry
+
+This allows Azure Container Apps to pull the backend image from ACR without using
+static credentials.
+
+## Security decision
+
+ACR admin user remains disabled.
+
+The API Container App authenticates to ACR using Managed Identity + RBAC instead
+of username/password credentials.
+
+This validates a cloud-native authentication pattern suitable for portfolio and
+interview discussion.

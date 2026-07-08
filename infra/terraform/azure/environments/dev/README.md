@@ -21,7 +21,7 @@ terraform plan -var-file="terraform.acr.example.tfvars"
 # Escenario 4 — + Monitoring + Container Apps Environment (0 recursos a crear: ambos ya están en state desde el Bloque 4.11)
 terraform plan -var-file="terraform.container-apps-env.example.tfvars"
 
-# Escenario 5 — + Managed Identity + AcrPull + Container App (3 recursos nuevos a crear, sin apply)
+# Escenario 5 — + Managed Identity + AcrPull + Container App (0 recursos a crear: los 3 ya están en state desde el Bloque 4.13)
 terraform plan -var-file="terraform.container-app.example.tfvars"
 ```
 
@@ -56,11 +56,62 @@ terraform plan -var-file="terraform.container-app.example.tfvars"
   incluyendo la verificación con Azure CLI y el rollback controlado.
 - **Bloque 4.12**: `modules/managed_identities` y `modules/container_apps` se convirtieron en
   módulos reales, detrás de `create_managed_identities` y `create_container_apps` (ambos default
-  `false`). Sólo planificación — no se ejecutó `terraform apply`. El Escenario 5 de arriba debe
-  mostrar exactamente `Plan: 3 to add, 0 to change, 0 to destroy` (identidad + `AcrPull` +
-  Container App). Ver la sección "Block 4.12" en [`../../README.md`](../../README.md) para el
-  detalle completo, incluyendo por qué la Container App usa Managed Identity en vez de admin user
-  y qué variables son placeholders de planificación.
+  `false`). Sólo planificación — no se ejecutó `terraform apply`. Ver la sección "Block 4.12" en
+  [`../../README.md`](../../README.md) para el detalle completo, incluyendo por qué la Container
+  App usa Managed Identity en vez de admin user y qué variables son placeholders de planificación.
+- **Bloque 4.13**: `terraform apply -var-file="terraform.container-app.example.tfvars"` ya se
+  ejecutó y creó la Managed Identity (`id-fittrack-ai-api-dev`), el role assignment `AcrPull` y la
+  Container App real (`ca-fittrack-ai-api-dev`). El state ahora contiene 7 recursos (Resource
+  Group, ACR, Log Analytics Workspace, Container Apps Environment, Managed Identity, role
+  assignment `AcrPull` y Container App). El Escenario 5 de arriba ahora muestra `No changes`.
+
+  Post-apply, el plan confirma:
+
+  ```text
+  Terraform has compared your real infrastructure against your configuration and found no
+  differences, so no changes are needed.
+  ```
+
+  URL canónica del health check (FQDN limpio reportado por Azure CLI — la que se usa en
+  README/portfolio):
+
+  ```text
+  https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io/health
+  ```
+
+  ```bash
+  curl "https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io/health"
+  ```
+
+  ```json
+  {"status":"ok","service":"fittrack-ai-api","version":"0.1.0"}
+  ```
+
+  ```bash
+  az containerapp show \
+    --name "ca-fittrack-ai-api-dev" \
+    --resource-group "rg-fittrack-ai-dev" \
+    --query "{name:name, provisioningState:properties.provisioningState, fqdn:properties.configuration.ingress.fqdn}" \
+    -o json
+  ```
+
+  ```json
+  {
+    "fqdn": "ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io",
+    "name": "ca-fittrack-ai-api-dev",
+    "provisioningState": "Succeeded"
+  }
+  ```
+
+  El output de Terraform (`api_container_app_url`) puede mostrar en cambio una URL de
+  **revisión**, por ejemplo
+  `https://ca-fittrack-ai-api-dev--j8xo7f2.wittydune-377fa2b0.eastus.azurecontainerapps.io` — para
+  documentación pública siempre se usa el FQDN limpio de arriba, que es estable entre revisiones.
+
+  Este es un deployment **demo/dev**: la Container App sigue usando placeholders para
+  `DATABASE_URL`, `JWT_SECRET_KEY` y `AI_PROVIDER=fake` (aceptables solo para validar `/health`).
+  Key Vault, secrets reales y Azure PostgreSQL siguen pendientes. Ver la sección "Block 4.13" en
+  [`../../README.md`](../../README.md) para el detalle completo.
 - `terraform plan` requiere una sesión de Azure activa (`az login`) o `ARM_SUBSCRIPTION_ID`
   exportada — el provider `azurerm` construye un authorizer al configurarse aunque los flags
   `create_*` estén en `false` y no vaya a crear ningún recurso. `terraform validate` y

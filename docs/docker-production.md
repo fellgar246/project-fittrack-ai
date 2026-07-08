@@ -278,6 +278,28 @@ publishes the artifact. Terraform state is unchanged by this block.
 
 ---
 
+## Deployed to Azure Container Apps (Block 4.13)
+
+The image currently published and deployed is:
+
+```text
+acrfittrackaidevdev01.azurecr.io/fittrack-api:block-4.13-amd64
+```
+
+This is a `linux/amd64` rebuild of the Block 4.9 image — that earlier build ran on Apple Silicon
+without `--platform`, producing a `linux/arm64` image that Azure Container Apps rejects. It was
+validated live from the Container App (`ca-fittrack-ai-api-dev`) via its public health endpoint:
+
+```bash
+curl "https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io/health"
+# {"status":"ok","service":"fittrack-ai-api","version":"0.1.0"}
+```
+
+See [`infra/terraform/azure/README.md`](../infra/terraform/azure/README.md#block-413--container-app-apply-api-health-check-demo)
+for the full Terraform apply details.
+
+---
+
 ## Troubleshooting
 
 | Symptom | Cause | Fix |

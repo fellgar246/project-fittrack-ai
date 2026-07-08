@@ -52,13 +52,18 @@ Este documento cubre cuatro bloques:
   `create_managed_identities` y `create_container_apps` (ambos default `false`). Solo
   planificación — no ejecuta `terraform apply`. Ver la sección
   [Block 4.12](#block-412--container-app-module-plan) más abajo.
+- **Bloque 4.13 — Container App Apply: API Health Check Demo**: ejecuta el `terraform apply`
+  autorizado que crea la Managed Identity, el role assignment `AcrPull` y la Container App reales
+  (`ca-fittrack-ai-api-dev`), dejando `GET /health` públicamente accesible. Ver la sección
+  [Block 4.13](#block-413--container-app-apply-api-health-check-demo) más abajo.
 
 **Los bloques 4.3, 4.4, 4.5, 4.7, 4.10 y 4.12 no crean ningún recurso de Azure ni ejecutan
 `terraform apply`.** Con todas las banderas `create_*` en `false` (default de
 `terraform.tfvars.example`), `terraform plan` no agrega ni cambia ningún recurso — solo calcula
-los outputs informativos. Los bloques 4.6, 4.8 y 4.11 son, hasta ahora, los únicos que han
-ejecutado un `apply` real: el 4.6 creó el Resource Group, el 4.8 el Azure Container Registry, y
-el 4.11 el Log Analytics Workspace y el Container Apps Environment.
+los outputs informativos. Los bloques 4.6, 4.8, 4.11 y 4.13 son, hasta ahora, los únicos que han
+ejecutado un `apply` real: el 4.6 creó el Resource Group, el 4.8 el Azure Container Registry, el
+4.11 el Log Analytics Workspace y el Container Apps Environment, y el 4.13 la Managed Identity,
+el role assignment `AcrPull` y la Container App de la API.
 
 ## 2. Estructura creada
 
@@ -162,7 +167,7 @@ provider "azurerm" {
 | `create_monitoring` | bool | `false` | Habilita `module.monitoring`. Requiere `create_resource_group=true` (validado). |
 | `log_analytics_sku` | string | `"PerGB2018"` | `Free` o `PerGB2018`. |
 | `log_analytics_retention_in_days` | number | `30` | Entre 30 y 730 días. |
-| `api_image_tag` | string | `"block-4.9"` | Tag de la imagen del backend ya publicada en ACR. |
+| `api_image_tag` | string | `"block-4.13-amd64"` | Tag de la imagen del backend ya publicada en ACR (rebuild `linux/amd64` del Bloque 4.13; el tag `block-4.9` original era `linux/arm64` y Azure Container Apps lo rechaza). |
 | `api_cpu` | number | `0.25` | CPU asignada a la Container App de la API. |
 | `api_memory` | string | `"0.5Gi"` | Memoria asignada a la Container App de la API. |
 | `api_min_replicas` | number | `0` | Mínimo de réplicas (permite scale-to-zero). |
@@ -206,11 +211,11 @@ Cada módulo se activa con su propia bandera `create_<módulo>` (todas en `false
 
 `terraform apply` **no se ejecuta** como parte de construir o extender esta estructura. Un
 `apply` real solo ocurre cuando un bloque futuro lo autoriza explícitamente. El Bloque 4.6
-habilitó `create_resource_group = true`, el Bloque 4.8 `create_acr = true`, y el Bloque 4.11
-`create_monitoring = true` y `create_container_apps_environment = true`. Las 5 banderas
-restantes (`create_key_vault`, `create_managed_identities`, `create_networking`,
-`create_postgres`, `create_container_apps`) siguen en `false`; cada una se activará en su propio
-bloque futuro.
+habilitó `create_resource_group = true`, el Bloque 4.8 `create_acr = true`, el Bloque 4.11
+`create_monitoring = true` y `create_container_apps_environment = true`, y el Bloque 4.13
+`create_managed_identities = true` y `create_container_apps = true`. Las 3 banderas restantes
+(`create_key_vault`, `create_networking`, `create_postgres`) siguen en `false`; cada una se
+activará en su propio bloque futuro.
 
 ## 6. Naming conventions
 
@@ -357,17 +362,18 @@ la reproducibilidad pesa más que la simplicidad de tener un archivo menos. Por 
 ## 16. Qué NO hacer todavía
 
 - No ejecutar `terraform apply` para ningún módulo más allá de `resource_group` (Bloque 4.6),
-  `acr` (Bloque 4.8), `monitoring` y `container_apps_environment` (Bloque 4.11).
-- No crear Container Apps (la aplicación en sí), PostgreSQL, Blob Storage ni recursos de Azure
-  OpenAI vía Terraform.
-- No hacer push de imágenes Docker al ACR real (llega en el Bloque 4.9).
-- No configurar el rol `AcrPull` todavía (requiere Managed Identity, bloque futuro).
+  `acr` (Bloque 4.8), `monitoring` y `container_apps_environment` (Bloque 4.11), y
+  `managed_identities` y `container_apps` (Bloque 4.13).
+- No crear PostgreSQL, Blob Storage ni recursos de Azure OpenAI vía Terraform.
+- No hacer push de nuevas imágenes Docker al ACR real (el tag `block-4.13-amd64`, publicado en
+  el Bloque 4.9/4.13, ya es el desplegado).
 - No configurar remote state.
 - No crear Key Vault.
 - No configurar GitHub Actions / CI-CD.
 - No commitear `terraform.tfvars`, `*.tfstate` ni ningún secreto.
 - No hardcodear `subscription_id` ni ninguna credencial en archivos `.tf` o `.tfvars`.
-- No ejecutar `terraform destroy` sobre el Resource Group salvo instrucción explícita.
+- No ejecutar `terraform destroy` sobre el Resource Group, ACR, Container Apps Environment,
+  Managed Identity ni Container App salvo instrucción explícita.
 
 ## 17. Troubleshooting
 
@@ -452,6 +458,15 @@ la reproducibilidad pesa más que la simplicidad de tener un archivo menos. Por 
 21. **Apply de Monitoring/Container Apps Environment ejecutado en el Bloque 4.11**: el `apply` se
     limitó explícitamente a los 2 recursos ya validados por `plan` en el Bloque 4.10, sin abrir la
     puerta a Container App, Managed Identity, AcrPull, Key Vault ni PostgreSQL en el mismo cambio.
+22. **Apply de Managed Identity + AcrPull + Container App ejecutado en el Bloque 4.13**: el
+    `apply` se limitó a los 3 recursos ya validados por `plan` en el Bloque 4.12. La imagen
+    desplegada usa el tag `block-4.13-amd64` en vez de `block-4.9`: el Bloque 4.9 había publicado
+    accidentalmente una imagen `linux/arm64` (build en Apple Silicon sin `--platform`), que Azure
+    Container Apps rechaza; el Bloque 4.13 reconstruyó y publicó una imagen `linux/amd64` bajo el
+    nuevo tag. Se agregó además un `time_sleep` de 60s entre la creación de la Managed Identity y
+    el `apply` de la Container App, para absorber la propagación eventual del role assignment
+    `AcrPull` en Azure AD (un apply previo sin esta espera falló con
+    `ContainerAppOperationError: unable to pull image using Managed identity`).
 
 ## Precheck de Azure CLI (sin crear recursos)
 
@@ -1210,14 +1225,160 @@ y `uv run pytest` → `66 passed`.
 Managed Identity, role assignment ni Container App reales. No se creó Key Vault, PostgreSQL ni
 networking privado. No se hizo push de una nueva imagen Docker.**
 
+## Block 4.13 — Container App Apply: API Health Check Demo
+
+Status: **completed**.
+
+Created/validated resources:
+
+- User Assigned Managed Identity for the API (`id-fittrack-ai-api-dev`)
+- `AcrPull` role assignment on the private Azure Container Registry (scope = ACR del Bloque 4.8)
+- Azure Container App for the FastAPI backend (`ca-fittrack-ai-api-dev`)
+
+Terraform state:
+
+```text
+module.resource_group[0].azurerm_resource_group.this
+module.acr[0].azurerm_container_registry.this
+module.monitoring[0].azurerm_log_analytics_workspace.this
+module.container_apps_environment[0].azurerm_container_app_environment.this
+module.managed_identities[0].azurerm_user_assigned_identity.this
+module.managed_identities[0].azurerm_role_assignment.acr_pull
+module.container_apps[0].azurerm_container_app.this
+```
+
+Published image used:
+
+```text
+acrfittrackaidevdev01.azurecr.io/fittrack-api:block-4.13-amd64
+```
+
+Por qué un tag nuevo en vez de reusar `block-4.9`: el Bloque 4.9 había publicado sin querer una
+imagen `linux/arm64` (build local en Apple Silicon sin `--platform`), que Azure Container Apps
+rechaza; este bloque reconstruyó la imagen para `linux/amd64` y la publicó bajo `block-4.13-amd64`
+(ver decisión técnica #22).
+
+### Comandos ejecutados
+
+```bash
+cd infra/terraform/azure/environments/dev
+terraform fmt -recursive -check
+terraform init
+terraform validate
+terraform plan -var-file="terraform.container-app.example.tfvars"
+terraform apply -var-file="terraform.container-app.example.tfvars"   # confirmado manualmente con "yes"
+```
+
+No se usó `-auto-approve`. El apply real se corrió en una terminal interactiva (ver la nota del
+Bloque 4.6 sobre `EOF` en canales no interactivos).
+
+### Resultado del plan
+
+```text
+Plan: 3 to add, 0 to change, 0 to destroy.
+```
+
+Únicos recursos planeados: `module.managed_identities[0].azurerm_user_assigned_identity.this`,
+`module.managed_identities[0].azurerm_role_assignment.acr_pull` y
+`module.container_apps[0].azurerm_container_app.this`.
+
+### Resultado del apply
+
+```text
+Apply complete! Resources: 3 added, 0 changed, 0 destroyed.
+```
+
+### Public health endpoint
+
+```text
+https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io/health
+```
+
+```bash
+curl "https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io/health"
+```
+
+```json
+{"status":"ok","service":"fittrack-ai-api","version":"0.1.0"}
+```
+
+### Verificación
+
+```bash
+az containerapp show \
+  --name "ca-fittrack-ai-api-dev" \
+  --resource-group "rg-fittrack-ai-dev" \
+  --query "{name:name, provisioningState:properties.provisioningState, fqdn:properties.configuration.ingress.fqdn}" \
+  -o json
+```
+
+```json
+{
+  "fqdn": "ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io",
+  "name": "ca-fittrack-ai-api-dev",
+  "provisioningState": "Succeeded"
+}
+```
+
+Post-apply, `terraform plan -var-file="terraform.container-app.example.tfvars"` muestra:
+
+```text
+Terraform has compared your real infrastructure against your configuration and found no
+differences, so no changes are needed.
+```
+
+Backend (sin cambios de código): `uv run ruff check .` limpio; `uv run pytest` → `66 passed` si
+el Docker daemon local está activo.
+
+### Importante
+
+Este es un deployment **demo/dev**. La API es públicamente alcanzable y valida el camino de
+deployment cloud-native completo:
+
+```text
+Docker image → Private ACR → Managed Identity → AcrPull → Azure Container App → /health
+```
+
+Sin embargo, los flujos reales de la aplicación **no son production-ready todavía** porque Key
+Vault, secrets reales y Azure PostgreSQL no están configurados — la Container App sigue usando
+los placeholders `DATABASE_URL`, `JWT_SECRET_KEY` y `AI_PROVIDER=fake` documentados en el Bloque
+4.12, ahora ya aplicados en Azure (no solo visibles en `plan`).
+
+Nota sobre URLs: el output de Terraform (`api_container_app_url`) puede reflejar una URL de
+**revisión** (p. ej. `https://ca-fittrack-ai-api-dev--j8xo7f2.wittydune-377fa2b0.eastus.azurecontainerapps.io`).
+Para documentación pública/portfolio se usa la URL limpia del FQDN reportado por `az containerapp
+show` (`ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io`), que es estable
+entre revisiones.
+
+### Destroy Managed Identity + AcrPull + Container App
+
+Para destruir únicamente los recursos de este bloque, preservando Resource Group, ACR, Log
+Analytics y Container Apps Environment, usar el escenario donde managed identities y container
+apps quedan deshabilitados:
+
+```bash
+cd infra/terraform/azure/environments/dev
+terraform plan -var-file="terraform.container-apps-env.example.tfvars"
+terraform apply -var-file="terraform.container-apps-env.example.tfvars"
+```
+
+Resultado esperado:
+
+```text
+Plan: 0 to add, 0 to change, 3 to destroy.
+```
+
+**Warning:** destruir la Container App corta el acceso público a `/health`. No se ha ejecutado
+`terraform destroy` — los 3 recursos siguen activos.
+
 ## Siguiente paso recomendado
 
-Dos rutas posibles después de este bloque:
+Continuar con **Bloque 4.14 — Key Vault + Container App Secrets Plan**:
 
-- **Opción A — Bloque 4.13: Terraform Container App Apply.** Aplicar los 3 recursos planeados
-  (Managed Identity + `AcrPull` + Container App) para que `GET /health` responda públicamente
-  desde Azure Container Apps. Limitación: usaría los placeholders temporales de `DATABASE_URL`
-  y `JWT_SECRET_KEY` — aceptable solo si se documenta explícitamente como demo/dev, no productivo.
-- **Opción B — Bloque 4.13: Key Vault + Secrets Plan.** Antes de aplicar la Container App,
-  implementar Key Vault y secrets reales para `JWT_SECRET_KEY` (y definir la estrategia futura
-  para `DATABASE_URL`), para no dejar ni siquiera placeholders en configuración aplicada.
+- Implementar el módulo `key_vault` (hoy placeholder).
+- Preparar secrets para `JWT_SECRET_KEY`, `DATABASE_URL` (placeholder o futuro real), y
+  configuración futura de Azure OpenAI.
+- Dar a la Managed Identity del Bloque 4.13 acceso controlado al Key Vault (access policy o RBAC).
+- Modificar `container_apps` para consumir esos secrets vía `secretref:` en vez de env vars en
+  texto plano.
+- Mantener `create_key_vault = false` por defecto — solo planificación, sin `apply` inicialmente.
