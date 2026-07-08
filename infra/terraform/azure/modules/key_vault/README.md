@@ -56,7 +56,7 @@ The API managed identity receives **`Key Vault Secrets User`** scoped to this va
 | Key Vault secret name | Maps to env var | Notes |
 |---|---|---|
 | `JWT-SECRET-KEY` | `JWT_SECRET_KEY` | Demo placeholder until production secret management |
-| `DATABASE-URL` | `DATABASE_URL` | Placeholder until Azure PostgreSQL (Block 4.16+) |
+| `DATABASE-URL` | `DATABASE_URL` | Real connection string when `create_postgres=true`; placeholder otherwise |
 
 Values are **demo-only placeholders**, not production-ready. Do not commit real secrets to
 `.tfvars.example` files.
@@ -83,6 +83,8 @@ policies, Azure OpenAI real configuration.
 - **Block 4.13** — Container App live with plain env var placeholders (acceptable for `/health` only).
 - **Block 4.14** — Module implemented; plan validated, no apply.
 - **Block 4.15** — Apply completed: Key Vault, secrets, and Container App secret wiring live in Azure.
+- **Block 4.17** — `DATABASE-URL` updated with real PostgreSQL connection string when
+  `create_postgres=true` (wiring via `module.postgres_flexible[0].database_url` in locals).
 
 ## Rollback Key Vault secret wiring
 

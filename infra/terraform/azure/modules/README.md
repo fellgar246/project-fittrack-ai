@@ -14,7 +14,7 @@ feature flags, which ones actually create resources.
 | [`managed_identities`](managed_identities/README.md) | **Implemented and applied** (gated by `create_managed_identities`, default `false`) | 4.12 / apply 4.13 |
 | [`key_vault`](key_vault/README.md) | **Implemented and applied** (gated by `create_key_vault`, default `false`) | 4.14 / apply 4.15 |
 | [`networking`](networking/README.md) | Placeholder | 4.9 |
-| [`postgres_flexible`](postgres_flexible/README.md) | Placeholder | 4.10 |
+| [`postgres_flexible`](postgres_flexible/README.md) | **Implemented and applied** (gated by `create_postgres`, default `false`) | 4.16 / apply 4.17 |
 | [`monitoring`](monitoring/README.md) | **Implemented and applied** (gated by `create_monitoring`, default `false`) | 4.10 / apply 4.11 |
 | [`container_apps_environment`](container_apps_environment/README.md) | **Implemented and applied** (gated by `create_container_apps_environment`, default `false`) | 4.10 / apply 4.11 |
 | [`container_apps`](container_apps/README.md) | **Implemented and applied** (gated by `create_container_apps`, default `false`) | 4.12 / apply 4.13 / KV secrets 4.15 |

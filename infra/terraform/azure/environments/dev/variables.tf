@@ -179,8 +179,69 @@ variable "create_networking" {
 
 variable "create_postgres" {
   type        = bool
-  description = "Whether to create Azure Database for PostgreSQL Flexible Server. Planned for a future block (modules/postgres_flexible is currently a placeholder)."
+  description = "Whether to create Azure Database for PostgreSQL Flexible Server."
   default     = false
+
+  validation {
+    condition     = !var.create_postgres || var.create_resource_group
+    error_message = "create_postgres=true requires create_resource_group=true."
+  }
+
+  validation {
+    condition     = !var.create_postgres || var.create_key_vault
+    error_message = "create_postgres=true requires create_key_vault=true so DATABASE_URL can be stored securely."
+  }
+}
+
+variable "postgres_administrator_login" {
+  description = "PostgreSQL administrator username."
+  type        = string
+  default     = "fittrackadmin"
+}
+
+variable "postgres_version" {
+  description = "PostgreSQL version."
+  type        = string
+  default     = "16"
+}
+
+variable "postgres_sku_name" {
+  description = "SKU name for PostgreSQL Flexible Server."
+  type        = string
+  default     = "B_Standard_B1ms"
+}
+
+variable "postgres_storage_mb" {
+  description = "Storage size in MB."
+  type        = number
+  default     = 32768
+}
+
+variable "postgres_backup_retention_days" {
+  description = "Backup retention in days."
+  type        = number
+  default     = 7
+}
+
+variable "postgres_public_network_access_enabled" {
+  description = "Whether public network access is enabled for PostgreSQL."
+  type        = bool
+  default     = true
+}
+
+variable "postgres_allowed_firewall_rules" {
+  description = "Firewall rules for PostgreSQL public access."
+  type = map(object({
+    start_ip_address = string
+    end_ip_address   = string
+  }))
+  default = {}
+}
+
+variable "postgres_location" {
+  description = "Azure region for PostgreSQL Flexible Server. Defaults to var.location. Override when the subscription restricts PostgreSQL in the primary region (e.g. eastus)."
+  type        = string
+  default     = null
 }
 
 variable "create_container_apps_environment" {

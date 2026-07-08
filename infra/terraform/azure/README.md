@@ -101,7 +101,7 @@ infra/terraform/azure/
     ├── key_vault/                # módulo real (main/variables/outputs.tf)
     ├── managed_identities/       # módulo real (main/variables/outputs.tf)
     ├── networking/                # placeholder
-    ├── postgres_flexible/        # placeholder
+    ├── postgres_flexible/        # módulo real (main/variables/outputs.tf)
     ├── container_apps_environment/  # módulo real (main/variables/outputs.tf)
     ├── container_apps/           # módulo real (main/variables/outputs.tf)
     └── monitoring/                # módulo real (main/variables/outputs.tf)
@@ -175,7 +175,15 @@ provider "azurerm" {
 | `api_database_url` | string | *(demo placeholder)* | Database URL (sensitive). Placeholder hasta PostgreSQL real. |
 | `create_managed_identities` | bool | `false` | Habilita `module.managed_identities`. Requiere `create_resource_group=true` y `create_acr=true` (validado). |
 | `create_networking` | bool | `false` | Planeado — `modules/networking` es placeholder. |
-| `create_postgres` | bool | `false` | Planeado — `modules/postgres_flexible` es placeholder. |
+| `create_postgres` | bool | `false` | Habilita `module.postgres_flexible`. Requiere `create_resource_group=true` y `create_key_vault=true` (validado). |
+| `postgres_location` | string | `null` | Región para PostgreSQL; override cuando la suscripción restringe la región principal (ej. `centralus`). |
+| `postgres_administrator_login` | string | `"fittrackadmin"` | Usuario admin de PostgreSQL. |
+| `postgres_version` | string | `"16"` | Versión de PostgreSQL. |
+| `postgres_sku_name` | string | `"B_Standard_B1ms"` | SKU burstable para dev/portfolio. |
+| `postgres_storage_mb` | number | `32768` | Almacenamiento en MB (32 GB). |
+| `postgres_backup_retention_days` | number | `7` | Retención de backup (7–35 días). |
+| `postgres_public_network_access_enabled` | bool | `true` | Acceso público temporal para dev/demo. |
+| `postgres_allowed_firewall_rules` | map | `{}` | Reglas de firewall; vacío por default. |
 | `create_container_apps_environment` | bool | `false` | Habilita `module.container_apps_environment`. Requiere `create_resource_group=true` y `create_monitoring=true` (validado). |
 | `create_container_apps` | bool | `false` | Habilita `module.container_apps`. Requiere `create_resource_group=true`, `create_acr=true`, `create_container_apps_environment=true` y `create_managed_identities=true` (validado). |
 | `create_monitoring` | bool | `false` | Habilita `module.monitoring`. Requiere `create_resource_group=true` (validado). |
@@ -1621,9 +1629,115 @@ Container App. **No ejecutar salvo rollback intencional.**
 
 ## Siguiente paso recomendado
 
-Continuar con **Bloque 4.16 — PostgreSQL Flexible Server Module Plan**:
+Continuar con **Bloque 4.18 — Azure PostgreSQL Alembic Migration Plan**:
 
-- Implementar el módulo `postgres_flexible` (hoy placeholder).
-- Planear Azure Database for PostgreSQL Flexible Server + base de datos `fittrack_ai`.
-- Preparar estrategia para reemplazar `DATABASE_URL` placeholder por URL real (vía Key Vault).
-- Mantener `create_postgres=false` por defecto — plan-only, sin apply inicialmente.
+- Agregar firewall rule temporal para IP local o estrategia segura de conexión.
+- Ejecutar `uv run alembic upgrade head` contra Azure PostgreSQL.
+- Verificar tablas creadas y probar endpoints funcionales mínimos.
+- Confirmar que la API puede operar con PostgreSQL real.
+- Documentar estrategia de migraciones para portfolio.
+
+## Block 4.16 — PostgreSQL Flexible Server Module Plan
+
+Status: **completed**.
+
+### Objetivo
+
+Implementar el módulo Terraform real `modules/postgres_flexible` para Azure Database for
+PostgreSQL Flexible Server + base de datos `fittrack_ai`, con password generado por Terraform
+y outputs sensibles internos (`administrator_password`, `database_url`).
+
+### Alcance
+
+- Módulo real: `random_password`, `azurerm_postgresql_flexible_server`,
+  `azurerm_postgresql_flexible_server_database`, firewall rules opcionales (vacías por default).
+- Variables postgres en `environments/dev/variables.tf` con validaciones.
+- `terraform.postgres.example.tfvars` con `create_postgres=true`.
+- Outputs seguros en environment (sin password ni database URL).
+- `create_postgres=false` sigue siendo default.
+- Plan-only inicialmente; apply autorizado en Block 4.17.
+
+### Decisiones técnicas
+
+1. SKU `B_Standard_B1ms` (~$12–25/mes) para dev/portfolio.
+2. Public access + firewall vacío — hardening privado en bloque futuro.
+3. Sin VNet, Private DNS, HA, réplicas, connection pooling.
+4. Connection string async: `postgresql+psycopg://...?sslmode=require`.
+5. Provider `random` agregado en `versions.tf`.
+
+## Block 4.17 — PostgreSQL Apply + DATABASE_URL Secret Update
+
+Status: **completed**.
+
+### Objetivo
+
+Crear PostgreSQL Flexible Server real en Azure, verificar con Azure CLI, y actualizar el
+secreto `DATABASE-URL` en Key Vault con el valor real generado por Terraform.
+
+### Recursos creados
+
+| Recurso | Nombre | Región |
+|---|---|---|
+| PostgreSQL Flexible Server | `psql-fittrack-ai-pg-dev01` | `centralus` |
+| Database | `fittrack_ai` | — |
+| Key Vault secret update | `DATABASE-URL` | — |
+
+**Nota de región:** la suscripción Azure restringe PostgreSQL Flexible Server en `eastus` y
+`eastus2` (`LocationIsOfferRestricted`). PostgreSQL se desplegó en `centralus` via
+`postgres_location`, mientras el resto de la infra permanece en `eastus`. El resource group
+(`rg-fittrack-ai-dev`) acepta recursos en regiones distintas.
+
+### Applies ejecutados
+
+Dos applies interactivos (sin `-auto-approve`):
+
+| Apply | Plan | Acción |
+|---|---|---|
+| Apply 1 | `2 to add, 0 to change, 0 to destroy` | Crear PostgreSQL + database + random_password |
+| Apply 2 | `0 to add, 1 to change, 0 to destroy` | Actualizar `DATABASE-URL` en Key Vault |
+
+### Wiring DATABASE-URL (Opción A — Terraform)
+
+En `locals.tf`:
+
+```hcl
+"DATABASE-URL" = var.create_postgres
+  ? module.postgres_flexible[0].database_url
+  : var.api_database_url
+```
+
+### Verificación post-apply
+
+- PostgreSQL: `state=Ready`, version 16, DB `fittrack_ai` presente.
+- Key Vault: secretos `DATABASE-URL` y `JWT-SECRET-KEY` (metadata only, valores no expuestos).
+- Container App: `provisioningState=Succeeded`.
+- `/health`: HTTP 200 — **no valida conexión PostgreSQL** (correcto para este bloque).
+
+### Decisiones técnicas
+
+1. Dos applies separados para validación intermedia limpia.
+2. Wiring Terraform (Opción A) — estado declarativo del secreto.
+3. Password generado por Terraform, nunca expuesto en outputs/logs/docs.
+4. Alembic **no ejecutado** — queda para Block 4.18.
+5. No se usó `-auto-approve`. No se ejecutó `terraform destroy`.
+6. `lifecycle { ignore_changes = [zone] }` en el módulo para evitar drift de availability zone.
+
+### Estrategia Alembic (Block 4.18+)
+
+1. Agregar firewall rule temporal para IP local.
+2. Obtener `DATABASE_URL` desde Terraform output sensitive (solo local).
+3. `uv run alembic upgrade head` contra Azure PostgreSQL.
+4. Verificar tablas + endpoints funcionales.
+5. Remover firewall temporal si aplica.
+
+### Teardown futuro (no ejecutar casualmente)
+
+```bash
+cd infra/terraform/azure/environments/dev
+# Revertir wiring DATABASE-URL en locals.tf a var.api_database_url
+# Set create_postgres=false, then:
+terraform plan -var-file="terraform.key-vault.example.tfvars"
+terraform apply -var-file="terraform.key-vault.example.tfvars"
+```
+
+Destruye PostgreSQL y restaura placeholder en Key Vault. **No ejecutar salvo rollback intencional.**

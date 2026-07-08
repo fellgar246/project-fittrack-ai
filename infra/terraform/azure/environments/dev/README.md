@@ -26,6 +26,9 @@ terraform plan -var-file="terraform.container-app.example.tfvars"
 
 # Escenario 6 — + Key Vault + Container App secret wiring (0 recursos a crear: todos ya están en state desde el Bloque 4.15)
 terraform plan -var-file="terraform.key-vault.example.tfvars"
+
+# Escenario 7 — + PostgreSQL Flexible Server (0 recursos a crear si ya aplicado en Bloque 4.17)
+terraform plan -var-file="terraform.postgres.example.tfvars"
 ```
 
 - **Bloque 4.6**: `terraform apply -var-file="terraform.resource-group.example.tfvars"` ya se
@@ -130,6 +133,14 @@ terraform plan -var-file="terraform.key-vault.example.tfvars"
   "Block 4.15" en [`../../README.md`](../../README.md) para el detalle completo, incluyendo el
   prerrequisito de permisos `Key Vault Secrets Officer` para el Terraform runner y el rollback
   controlado.
+- **Bloque 4.16**: `modules/postgres_flexible` se convirtió en módulo real, detrás de
+  `create_postgres` (default `false`). Sólo planificación — no se ejecutó `terraform apply`.
+  Ver la sección "Block 4.16" en [`../../README.md`](../../README.md).
+- **Bloque 4.17**: `terraform apply -var-file="terraform.postgres.example.tfvars"` se ejecutó
+  en dos fases: (1) crear PostgreSQL (`psql-fittrack-ai-pg-dev01`, `centralus`, DB
+  `fittrack_ai`) y (2) actualizar secreto `DATABASE-URL` en Key Vault con wiring Terraform.
+  El Escenario 7 de arriba muestra `No changes`. `/health` sigue HTTP 200. Alembic no se
+  ejecutó. Ver la sección "Block 4.17" en [`../../README.md`](../../README.md).
 - `terraform plan` requiere una sesión de Azure activa (`az login`) o `ARM_SUBSCRIPTION_ID`
   exportada — el provider `azurerm` construye un authorizer al configurarse aunque los flags
   `create_*` estén en `false` y no vaya a crear ningún recurso. `terraform validate` y

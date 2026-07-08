@@ -163,6 +163,36 @@ output "api_container_image" {
   value       = "${local.acr_name}.azurecr.io/fittrack-api:${var.api_image_tag}"
 }
 
+output "postgres_enabled" {
+  description = "Whether PostgreSQL module is enabled."
+  value       = var.create_postgres
+}
+
+output "postgres_server_name" {
+  description = "PostgreSQL Flexible Server name when created, otherwise planned name."
+  value       = var.create_postgres ? module.postgres_flexible[0].server_name : local.postgres_server_name
+}
+
+output "postgres_server_id" {
+  description = "PostgreSQL Flexible Server resource ID when created. Null when disabled."
+  value       = var.create_postgres ? module.postgres_flexible[0].server_id : null
+}
+
+output "postgres_fqdn" {
+  description = "PostgreSQL Flexible Server FQDN when created. Null when disabled."
+  value       = var.create_postgres ? module.postgres_flexible[0].fqdn : null
+}
+
+output "postgres_database_name" {
+  description = "PostgreSQL database name when created, otherwise planned name."
+  value       = var.create_postgres ? module.postgres_flexible[0].database_name : local.postgres_database_name
+}
+
+output "postgres_administrator_login" {
+  description = "PostgreSQL administrator login."
+  value       = var.postgres_administrator_login
+}
+
 output "planned_modules" {
   description = "Planned Terraform modules for future Azure services, in dependency order."
   value = [

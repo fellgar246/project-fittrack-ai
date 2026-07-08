@@ -81,6 +81,29 @@ module "managed_identities" {
   tags                = local.common_tags
 }
 
+# Block 4.16 — Azure Database for PostgreSQL Flexible Server. Gated behind
+# create_postgres (default false); its validations in variables.tf guarantee
+# create_resource_group and create_key_vault are also true whenever this is enabled.
+module "postgres_flexible" {
+  source = "../../modules/postgres_flexible"
+  count  = var.create_postgres ? 1 : 0
+
+  server_name         = local.postgres_server_name
+  database_name       = local.postgres_database_name
+  resource_group_name = module.resource_group[0].name
+  location            = coalesce(var.postgres_location, module.resource_group[0].location)
+
+  administrator_login           = var.postgres_administrator_login
+  postgres_version              = var.postgres_version
+  sku_name                      = var.postgres_sku_name
+  storage_mb                    = var.postgres_storage_mb
+  backup_retention_days         = var.postgres_backup_retention_days
+  public_network_access_enabled = var.postgres_public_network_access_enabled
+  allowed_firewall_rules        = var.postgres_allowed_firewall_rules
+
+  tags = local.common_tags
+}
+
 # Block 4.14 — Azure Key Vault with RBAC for API secrets. Gated behind
 # create_key_vault (default false); its validations in variables.tf guarantee
 # create_resource_group and create_managed_identities are also true whenever this

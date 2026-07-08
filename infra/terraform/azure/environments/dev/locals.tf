@@ -20,13 +20,13 @@ locals {
   container_app_env_name  = "cae-${var.project_name}-${var.environment}"
   container_app_api_name  = "ca-${var.project_name}-api-${var.environment}"
   api_identity_name       = "id-${var.project_name}-api-${var.environment}"
-  postgres_server_name    = "psql-${var.project_name}-${var.environment}"
+  postgres_server_name    = var.unique_suffix != "" ? "psql-${var.project_name}-pg-${var.unique_suffix}" : "psql-${var.project_name}-${var.environment}"
   postgres_database_name  = "fittrack_ai"
   log_analytics_workspace = "log-${var.project_name}-${var.environment}"
   key_vault_name          = lower(substr("kv${replace(local.name_prefix, "-", "")}${var.unique_suffix}", 0, 24))
 
   api_key_vault_secrets = {
     "JWT-SECRET-KEY" = var.api_jwt_secret_key
-    "DATABASE-URL"   = var.api_database_url
+    "DATABASE-URL"   = var.create_postgres ? module.postgres_flexible[0].database_url : var.api_database_url
   }
 }
