@@ -35,16 +35,17 @@ assignment scope). Enabling `create_managed_identities` requires both
 |---|---|
 | `id` | Identity resource ID — consumed by `container_apps`'s `identity_id` input. |
 | `name` | Identity name. |
-| `principal_id` | Used internally for the `AcrPull` role assignment; not currently exposed by `environments/dev`. |
+| `principal_id` | Used for `AcrPull` and, when Key Vault is enabled, passed to `module.key_vault` for the `Key Vault Secrets User` role assignment. Not exposed as an environment output. |
 | `client_id` | Client ID of the identity — exposed as `api_identity_client_id` for future use (e.g. AAD-based auth). |
 | `acr_pull_role_assignment_id` | Resource ID of the `AcrPull` role assignment, for traceability. |
 
 ## Notes
 
 This module creates exactly two resources: `azurerm_user_assigned_identity` and
-`azurerm_role_assignment` (role `AcrPull`, scoped to `var.acr_id`). No Key Vault
-access policy, no other role assignments, and no identity for any component other
-than the API are created here. `skip_service_principal_aad_check` is intentionally
+`azurerm_role_assignment` (role `AcrPull`, scoped to `var.acr_id`). No Key Vault role assignment
+is created here — that belongs to `module.key_vault` (Block 4.14), which grants
+`Key Vault Secrets User` to this identity's `principal_id`. No other role assignments and no
+identity for any component other than the API are created here. `skip_service_principal_aad_check` is intentionally
 not set on the role assignment. The real Block 4.13 apply did hit AAD propagation
 timing: pulling the image right after the role assignment was created failed with
 `ContainerAppOperationError: unable to pull image using Managed identity`. Rather

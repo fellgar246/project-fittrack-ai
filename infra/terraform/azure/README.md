@@ -56,8 +56,12 @@ Este documento cubre cuatro bloques:
   autorizado que crea la Managed Identity, el role assignment `AcrPull` y la Container App reales
   (`ca-fittrack-ai-api-dev`), dejando `GET /health` públicamente accesible. Ver la sección
   [Block 4.13](#block-413--container-app-apply-api-health-check-demo) más abajo.
+- **Bloque 4.14 — Key Vault + Container App Secrets Plan**: implementa el módulo `key_vault` con
+  RBAC, extiende `container_apps` para secret references desde Key Vault, y valida el plan con
+  `terraform.key-vault.example.tfvars` — **sin `terraform apply`**. Ver la sección
+  [Block 4.14](#block-414--key-vault--container-app-secrets-plan) más abajo.
 
-**Los bloques 4.3, 4.4, 4.5, 4.7, 4.10 y 4.12 no crean ningún recurso de Azure ni ejecutan
+**Los bloques 4.3, 4.4, 4.5, 4.7, 4.10, 4.12 y 4.14 no crean ningún recurso de Azure ni ejecutan
 `terraform apply`.** Con todas las banderas `create_*` en `false` (default de
 `terraform.tfvars.example`), `terraform plan` no agrega ni cambia ningún recurso — solo calcula
 los outputs informativos. Los bloques 4.6, 4.8, 4.11 y 4.13 son, hasta ahora, los únicos que han
@@ -84,12 +88,13 @@ infra/terraform/azure/
 │       ├── terraform.acr.example.tfvars              # previsualiza Resource Group + ACR
 │       ├── terraform.container-apps-env.example.tfvars  # + Monitoring + Container Apps Env
 │       ├── terraform.container-app.example.tfvars       # + Managed Identity + Container App
+│       ├── terraform.key-vault.example.tfvars           # + Key Vault + Container App secret wiring
 │       └── README.md             # quickstart del entorno dev
 └── modules/
     ├── README.md                 # overview de la capa de módulos
     ├── resource_group/           # módulo real (main/variables/outputs.tf)
     ├── acr/                      # módulo real (main/variables/outputs.tf)
-    ├── key_vault/                # placeholder
+    ├── key_vault/                # módulo real (main/variables/outputs.tf)
     ├── managed_identities/       # módulo real (main/variables/outputs.tf)
     ├── networking/                # placeholder
     ├── postgres_flexible/        # placeholder
@@ -158,7 +163,12 @@ provider "azurerm" {
 | `acr_sku` | string | `"Basic"` | `Basic`, `Standard` o `Premium`. |
 | `acr_admin_enabled` | bool | `false` | Debe permanecer `false`; el acceso futuro es vía managed identity. |
 | `unique_suffix` | string | `""` | Sufijo opcional (3–8 alfanumérico minúscula) para nombres globales como ACR. |
-| `create_key_vault` | bool | `false` | Planeado — `modules/key_vault` es placeholder. |
+| `create_key_vault` | bool | `false` | Habilita `module.key_vault`. Requiere `create_resource_group=true` y `create_managed_identities=true` (validado). |
+| `key_vault_sku_name` | string | `"standard"` | `standard` o `premium`. |
+| `key_vault_soft_delete_retention_days` | number | `7` | Entre 7 y 90 días. |
+| `key_vault_purge_protection_enabled` | bool | `false` | Protección contra purge del vault. |
+| `api_jwt_secret_key` | string | *(demo placeholder)* | JWT secret (sensitive). Solo en tfvars locales o placeholders demo. |
+| `api_database_url` | string | *(demo placeholder)* | Database URL (sensitive). Placeholder hasta PostgreSQL real. |
 | `create_managed_identities` | bool | `false` | Habilita `module.managed_identities`. Requiere `create_resource_group=true` y `create_acr=true` (validado). |
 | `create_networking` | bool | `false` | Planeado — `modules/networking` es placeholder. |
 | `create_postgres` | bool | `false` | Planeado — `modules/postgres_flexible` es placeholder. |
@@ -1371,14 +1381,108 @@ Plan: 0 to add, 0 to change, 3 to destroy.
 **Warning:** destruir la Container App corta el acceso público a `/health`. No se ha ejecutado
 `terraform destroy` — los 3 recursos siguen activos.
 
+## Block 4.14 — Key Vault + Container App Secrets Plan
+
+Status: **completed** (plan-only — no `terraform apply`).
+
+### Objetivo
+
+Mover el diseño de secretos de placeholders planos en env vars hacia:
+
+```text
+Container App → Managed Identity → Key Vault (RBAC) → secret references
+```
+
+### Decisiones técnicas
+
+1. Key Vault se introduce **después** del health check demo (Block 4.13) — los placeholders planos
+   no son suficientes para flujos reales.
+2. **RBAC** (`enable_rbac_authorization = true`), no access policies legacy.
+3. La API recibe **`Key Vault Secrets User`**, no permisos administrativos.
+4. `JWT_SECRET_KEY` y `DATABASE_URL` pasan a secretos; `AI_PROVIDER=fake` sigue como env var no
+   sensible.
+5. `DATABASE_URL` sigue siendo placeholder hasta crear Azure PostgreSQL.
+6. **Key Vault references directas** en Container App (`key_vault_secret_id` + `identity`) —
+   soportadas por azurerm 4.80.0.
+7. Secretos demo creados vía Terraform con valores placeholder (demo-only, not production-ready).
+8. `create_key_vault = false` por defecto — el stack live no cambia con el tfvars actual.
+9. No se ejecuta `apply` en este bloque — implementación separada del despliegue (Block 4.15).
+10. No se outputean valores de secretos.
+
+### Recursos implementados (módulo `key_vault`)
+
+- `azurerm_key_vault` con RBAC habilitado
+- `azurerm_role_assignment` — `Key Vault Secrets User` para la Managed Identity de la API
+- `azurerm_key_vault_secret` — `JWT-SECRET-KEY`, `DATABASE-URL` (demo placeholders)
+
+Nombre planeado del vault: `kvfittrackaidevdev01`.
+
+### Cambios en `container_apps`
+
+- Nuevo input `secrets` — Key Vault references o valores directos
+- Nuevo input `secret_env_vars` — env vars vía `secret_name`
+- Wiring condicional en `environments/dev/main.tf`: con `create_key_vault=false` se preservan los
+  env vars planos del Block 4.13; con `create_key_vault=true` se usan referencias a Key Vault.
+
+### Comandos ejecutados
+
+```bash
+cd infra/terraform/azure/environments/dev
+terraform fmt -recursive -check
+terraform init
+terraform validate
+terraform plan -var-file="terraform.container-app.example.tfvars"
+terraform plan -var-file="terraform.key-vault.example.tfvars"
+```
+
+Backend (sin cambios de código): `uv run ruff check .` → `All checks passed`. `uv run pytest`
+→ `66 passed` (si Docker está activo).
+
+### Resultado del plan — escenario actual (Container App live)
+
+Con `terraform.container-app.example.tfvars` (`create_key_vault = false`):
+
+```text
+No changes. Your infrastructure matches the configuration.
+```
+
+### Resultado del plan — escenario Key Vault activo
+
+Con `terraform.key-vault.example.tfvars` (`create_key_vault = true`):
+
+```text
+Plan: 4 to add, 1 to change, 0 to destroy.
+```
+
+Recursos nuevos esperados:
+
+- `module.key_vault[0].azurerm_key_vault.this`
+- `module.key_vault[0].azurerm_role_assignment.api_secrets_user`
+- `module.key_vault[0].azurerm_key_vault_secret.this["JWT-SECRET-KEY"]`
+- `module.key_vault[0].azurerm_key_vault_secret.this["DATABASE-URL"]`
+
+Update in-place esperado:
+
+- `module.container_apps[0].azurerm_container_app.this` — mover `JWT_SECRET_KEY` y `DATABASE_URL`
+  de env vars planas a secret references
+
+No debe aparecer: PostgreSQL, VNet, ACR nuevo, Resource Group nuevo, CAE nuevo, Container App
+adicional.
+
+### Importante
+
+**No se ejecutó `terraform apply` ni `terraform destroy` en este bloque.** Key Vault y secret
+wiring existen solo en código y en el plan de previsualización.
+
+El Terraform runner que ejecute el apply del Block 4.15 necesitará permisos para crear secretos
+(p. ej. **Key Vault Secrets Officer**). La Managed Identity de la API solo puede **leer** secretos.
+
 ## Siguiente paso recomendado
 
-Continuar con **Bloque 4.14 — Key Vault + Container App Secrets Plan**:
+Continuar con **Bloque 4.15 — Key Vault Apply + Container App Secret Wiring**:
 
-- Implementar el módulo `key_vault` (hoy placeholder).
-- Preparar secrets para `JWT_SECRET_KEY`, `DATABASE_URL` (placeholder o futuro real), y
-  configuración futura de Azure OpenAI.
-- Dar a la Managed Identity del Bloque 4.13 acceso controlado al Key Vault (access policy o RBAC).
-- Modificar `container_apps` para consumir esos secrets vía `secretref:` en vez de env vars en
-  texto plano.
-- Mantener `create_key_vault = false` por defecto — solo planificación, sin `apply` inicialmente.
+- Ejecutar `terraform apply -var-file="terraform.key-vault.example.tfvars"` (autorizado).
+- Verificar Key Vault y secretos con Azure CLI (sin exponer valores).
+- Confirmar que `/health` sigue respondiendo HTTP 200.
+- Confirmar `terraform plan` sin cambios post-apply.
+- Preparar Block 4.16+ (Azure PostgreSQL + `DATABASE_URL` real).

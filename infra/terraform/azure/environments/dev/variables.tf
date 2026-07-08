@@ -99,8 +99,60 @@ variable "unique_suffix" {
 
 variable "create_key_vault" {
   type        = bool
-  description = "Whether to create the Key Vault. Planned for a future block (modules/key_vault is currently a placeholder)."
+  description = "Whether to create Azure Key Vault and related secret access configuration."
   default     = false
+
+  validation {
+    condition     = !var.create_key_vault || var.create_resource_group
+    error_message = "create_key_vault=true requires create_resource_group=true."
+  }
+
+  validation {
+    condition     = !var.create_key_vault || var.create_managed_identities
+    error_message = "create_key_vault=true requires create_managed_identities=true."
+  }
+}
+
+variable "key_vault_sku_name" {
+  description = "SKU for Azure Key Vault."
+  type        = string
+  default     = "standard"
+
+  validation {
+    condition     = contains(["standard", "premium"], var.key_vault_sku_name)
+    error_message = "key_vault_sku_name must be either standard or premium."
+  }
+}
+
+variable "key_vault_soft_delete_retention_days" {
+  description = "Soft delete retention period for Key Vault in days."
+  type        = number
+  default     = 7
+
+  validation {
+    condition     = var.key_vault_soft_delete_retention_days >= 7 && var.key_vault_soft_delete_retention_days <= 90
+    error_message = "key_vault_soft_delete_retention_days must be between 7 and 90."
+  }
+}
+
+variable "key_vault_purge_protection_enabled" {
+  description = "Whether purge protection is enabled for Key Vault."
+  type        = bool
+  default     = false
+}
+
+variable "api_jwt_secret_key" {
+  description = "JWT secret key for the API. Use only local tfvars or safe demo placeholder values."
+  type        = string
+  sensitive   = true
+  default     = "dev-only-placeholder-change-before-prod"
+}
+
+variable "api_database_url" {
+  description = "Database URL for the API. Placeholder until Azure PostgreSQL is created."
+  type        = string
+  sensitive   = true
+  default     = "postgresql+psycopg://placeholder:placeholder@placeholder:5432/fittrack_ai"
 }
 
 variable "create_managed_identities" {

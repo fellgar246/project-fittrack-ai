@@ -9,6 +9,8 @@
 # modules/, wired here behind its own create_* flag once implemented — see
 # modules/README.md for the full planned module flow.
 
+data "azurerm_client_config" "current" {}
+
 module "resource_group" {
   source = "../../modules/resource_group"
   count  = var.create_resource_group ? 1 : 0
@@ -79,6 +81,28 @@ module "managed_identities" {
   tags                = local.common_tags
 }
 
+# Block 4.14 — Azure Key Vault with RBAC for API secrets. Gated behind
+# create_key_vault (default false); its validations in variables.tf guarantee
+# create_resource_group and create_managed_identities are also true whenever this
+# is enabled, so module.resource_group[0] and module.managed_identities[0] are
+# always safe here.
+module "key_vault" {
+  source = "../../modules/key_vault"
+  count  = var.create_key_vault ? 1 : 0
+
+  name                      = local.key_vault_name
+  resource_group_name       = module.resource_group[0].name
+  location                  = module.resource_group[0].location
+  tenant_id                 = data.azurerm_client_config.current.tenant_id
+  api_identity_principal_id = module.managed_identities[0].principal_id
+
+  sku_name                   = var.key_vault_sku_name
+  soft_delete_retention_days = var.key_vault_soft_delete_retention_days
+  purge_protection_enabled   = var.key_vault_purge_protection_enabled
+  secrets                    = local.api_key_vault_secrets
+  tags                       = local.common_tags
+}
+
 # Block 4.13 — AcrPull is granted via azurerm_role_assignment, but Azure AD/RBAC
 # propagation is eventually consistent: the role assignment API call can report
 # "complete" before the permission is actually usable for an image pull. The
@@ -104,7 +128,10 @@ module "container_apps" {
   source = "../../modules/container_apps"
   count  = var.create_container_apps ? 1 : 0
 
-  depends_on = [time_sleep.wait_for_acr_pull_propagation]
+  depends_on = [
+    time_sleep.wait_for_acr_pull_propagation,
+    module.key_vault,
+  ]
 
   name                         = local.container_app_api_name
   resource_group_name          = module.resource_group[0].name
@@ -119,12 +146,27 @@ module "container_apps" {
   target_port                  = var.api_target_port
   tags                         = local.common_tags
 
-  # Planning-only placeholders (Block 4.12 does not run terraform apply). Real
-  # secrets belong in Key Vault, not plaintext env vars — deferred to a future
-  # block before this Container App is ever applied.
-  env_vars = {
-    AI_PROVIDER    = "fake"
-    JWT_SECRET_KEY = "dev-only-placeholder-change-before-prod"
-    DATABASE_URL   = "postgresql+psycopg://placeholder:placeholder@placeholder:5432/fittrack"
-  }
+  env_vars = merge(
+    { AI_PROVIDER = "fake" },
+    var.create_key_vault ? {} : {
+      JWT_SECRET_KEY = "dev-only-placeholder-change-before-prod"
+      DATABASE_URL   = "postgresql+psycopg://placeholder:placeholder@placeholder:5432/fittrack"
+    }
+  )
+
+  secrets = var.create_key_vault ? {
+    jwt-secret-key = {
+      key_vault_secret_id = module.key_vault[0].secret_ids["JWT-SECRET-KEY"]
+      identity            = module.managed_identities[0].id
+    }
+    database-url = {
+      key_vault_secret_id = module.key_vault[0].secret_ids["DATABASE-URL"]
+      identity            = module.managed_identities[0].id
+    }
+  } : {}
+
+  secret_env_vars = var.create_key_vault ? {
+    JWT_SECRET_KEY = { secret_name = "jwt-secret-key" }
+    DATABASE_URL   = { secret_name = "database-url" }
+  } : {}
 }

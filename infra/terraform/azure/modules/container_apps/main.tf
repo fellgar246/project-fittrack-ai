@@ -15,6 +15,17 @@ resource "azurerm_container_app" "this" {
     identity = var.identity_id
   }
 
+  dynamic "secret" {
+    for_each = var.secrets
+
+    content {
+      name                = secret.key
+      value               = try(secret.value.value, null)
+      key_vault_secret_id = try(secret.value.key_vault_secret_id, null)
+      identity            = try(secret.value.identity, null)
+    }
+  }
+
   ingress {
     external_enabled = true
     target_port      = var.target_port
@@ -41,6 +52,15 @@ resource "azurerm_container_app" "this" {
         content {
           name  = env.key
           value = env.value
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.secret_env_vars
+
+        content {
+          name        = env.key
+          secret_name = env.value.secret_name
         }
       }
     }

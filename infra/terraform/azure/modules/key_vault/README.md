@@ -1,33 +1,86 @@
-# Module: key_vault (placeholder)
+# Module: key_vault
 
-**Status:** placeholder — no `.tf` files yet. Target block: 4.8.
+**Status:** implemented in Block 4.14 — gated by `create_key_vault` (default `false`) in
+`environments/dev`. Only `terraform plan` has been validated in Block 4.14; **`terraform apply`
+is deferred to Block 4.15.**
 
 ## Purpose
 
-Provision an Azure Key Vault to hold FitTrack AI secrets (`DATABASE_URL`,
-`JWT_SECRET_KEY`, `AZURE_OPENAI_API_KEY`, etc.) so Container Apps can reference
-them instead of storing raw secret values in Container App secrets directly.
+Provision an Azure Key Vault with RBAC authorization to hold FitTrack AI secrets
+(`JWT-SECRET-KEY`, `DATABASE-URL`, and future Azure OpenAI keys) so the API Container App can
+reference them via managed identity instead of storing raw secret values in plain environment
+variables.
 
-## Planned inputs
+## Architecture
 
-| Name | Type | Description |
-|---|---|---|
-| `name` | `string` | Key Vault name. |
-| `resource_group_name` | `string` | From `module.resource_group`. |
-| `location` | `string` | From `module.resource_group`. |
-| `sku_name` | `string` | Defaults to `"standard"`. |
-| `tags` | `map(string)` | Common tags. |
+```text
+Container App → Managed Identity → Key Vault (RBAC) → secret references
+```
 
-## Planned outputs
+The API managed identity receives **`Key Vault Secrets User`** scoped to this vault — not
+`Key Vault Administrator`, `Key Vault Secrets Officer`, or `Contributor`.
+
+## Inputs
+
+| Name | Type | Default | Description |
+|---|---|---|---|
+| `name` | `string` | — | From `local.key_vault_name` (e.g. `kvfittrackaidevdev01`). |
+| `resource_group_name` | `string` | — | From `module.resource_group`. |
+| `location` | `string` | — | From `module.resource_group`. |
+| `tenant_id` | `string` | — | From `data.azurerm_client_config.current.tenant_id`. |
+| `api_identity_principal_id` | `string` | — | From `module.managed_identities`'s `principal_id`. |
+| `sku_name` | `string` | `"standard"` | `standard` or `premium`. |
+| `soft_delete_retention_days` | `number` | `7` | Between 7 and 90 days. |
+| `purge_protection_enabled` | `bool` | `false` | Purge protection for the vault. |
+| `secrets` | `map(string)` | `{}` | Secret names and values (sensitive). Demo placeholders only in example tfvars. |
+| `tags` | `map(string)` | `{}` | Common tags. |
+
+## Outputs
 
 | Name | Description |
 |---|---|
 | `id` | Key Vault resource ID. |
-| `vault_uri` | Used by app/services to read secrets. |
 | `name` | Key Vault name. |
+| `vault_uri` | Key Vault URI. |
+| `secret_names` | Names of secrets created — **never secret values**. |
+| `secret_ids` | Map of secret names to secret IDs (sensitive; used for Container App wiring). |
+| `api_secrets_user_role_assignment_id` | Role assignment ID for `Key Vault Secrets User`. |
+
+## Resources created
+
+- `azurerm_key_vault` with `rbac_authorization_enabled = true` (azurerm 4.x; replaces deprecated `enable_rbac_authorization`)
+- `azurerm_role_assignment` — `Key Vault Secrets User` for the API managed identity
+- `azurerm_key_vault_secret` — one per entry in `var.secrets` (uses `nonsensitive(var.secrets)` for `for_each` because secret values are sensitive)
+
+## Initial secrets (demo/dev)
+
+| Key Vault secret name | Maps to env var | Notes |
+|---|---|---|
+| `JWT-SECRET-KEY` | `JWT_SECRET_KEY` | Demo placeholder until production secret management |
+| `DATABASE-URL` | `DATABASE_URL` | Placeholder until Azure PostgreSQL (Block 4.16+) |
+
+Values are **demo-only placeholders**, not production-ready. Do not commit real secrets to
+`.tfvars.example` files.
+
+## Security decisions
+
+1. **RBAC, not legacy access policies** — `enable_rbac_authorization = true` on the vault.
+2. **Least privilege for the API** — only `Key Vault Secrets User`, no administrative roles.
+3. **No secret values in outputs** — only names and IDs are exposed.
+4. **Terraform runner permissions** — creating secrets via Terraform with RBAC requires the
+   deployer (Block 4.15) to hold a role such as **Key Vault Secrets Officer** on the vault.
+   The API identity alone cannot create secrets.
 
 ## Notes
 
-Enabled by `var.create_key_vault` (default `false`). Depends on `resource_group`
-and `managed_identities` (RBAC access policy grants). No secret **values** are
-ever hardcoded in Terraform — only the vault and its access policies.
+Enabled by `var.create_key_vault` (default `false`). Requires `create_resource_group=true` and
+`create_managed_identities=true` (enforced by validations in `environments/dev/variables.tf`).
+
+Out of scope: private endpoints, diagnostic settings, certificates, keys, legacy access
+policies, Azure OpenAI real configuration.
+
+## Related blocks
+
+- **Block 4.13** — Container App live with plain env var placeholders (acceptable for `/health` only).
+- **Block 4.14** — This module implemented; plan-only, no apply.
+- **Block 4.15** — Authorized `terraform apply` to create Key Vault and wire Container App secrets.

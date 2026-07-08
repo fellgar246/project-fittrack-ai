@@ -64,6 +64,25 @@ variable "env_vars" {
   default     = {}
 }
 
+variable "secrets" {
+  description = "Container App secrets. Values may be direct values or Key Vault references depending on configuration."
+  type = map(object({
+    value               = optional(string)
+    key_vault_secret_id = optional(string)
+    identity            = optional(string)
+  }))
+  default   = {}
+  sensitive = true
+}
+
+variable "secret_env_vars" {
+  description = "Environment variables sourced from Container App secrets."
+  type = map(object({
+    secret_name = string
+  }))
+  default = {}
+}
+
 variable "tags" {
   type        = map(string)
   description = "Tags applied to the Container App."

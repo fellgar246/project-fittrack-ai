@@ -11,13 +11,13 @@ feature flags, which ones actually create resources.
 |---|---|---|
 | [`resource_group`](resource_group/README.md) | **Implemented and applied** (gated by `create_resource_group`, default `false`) | 4.4 / apply 4.6 |
 | [`acr`](acr/README.md) | **Implemented and applied** (gated by `create_acr`, default `false`) | 4.7 / apply 4.8 |
-| [`managed_identities`](managed_identities/README.md) | **Implemented** (gated by `create_managed_identities`, default `false`) | 4.12 |
-| [`key_vault`](key_vault/README.md) | Placeholder | 4.8 |
+| [`managed_identities`](managed_identities/README.md) | **Implemented and applied** (gated by `create_managed_identities`, default `false`) | 4.12 / apply 4.13 |
+| [`key_vault`](key_vault/README.md) | **Implemented** (gated by `create_key_vault`, default `false`) | 4.14 / apply 4.15 |
 | [`networking`](networking/README.md) | Placeholder | 4.9 |
 | [`postgres_flexible`](postgres_flexible/README.md) | Placeholder | 4.10 |
 | [`monitoring`](monitoring/README.md) | **Implemented and applied** (gated by `create_monitoring`, default `false`) | 4.10 / apply 4.11 |
 | [`container_apps_environment`](container_apps_environment/README.md) | **Implemented and applied** (gated by `create_container_apps_environment`, default `false`) | 4.10 / apply 4.11 |
-| [`container_apps`](container_apps/README.md) | **Implemented** (gated by `create_container_apps`, default `false`) | 4.12 |
+| [`container_apps`](container_apps/README.md) | **Implemented and applied** (gated by `create_container_apps`, default `false`) | 4.12 / apply 4.13 / secrets 4.14 |
 
 "Placeholder" means the folder currently contains only a `README.md` describing
 the module's future purpose, inputs, and outputs — no `.tf` files, no resources.
@@ -26,8 +26,8 @@ its `create_*` flag is enabled, regardless of whether `terraform apply` has been
 run yet. Block numbers above are indicative planning, not a commitment; they may
 shift as the project evolves.
 
-`managed_identities` and `container_apps` were built and their `plan` validated in
-Block 4.12, but `terraform apply` has **not** been run for either yet.
+`managed_identities` and `container_apps` were applied in Block 4.13. Key Vault secret wiring was
+added in Block 4.14 (plan-only); apply is deferred to Block 4.15.
 
 ## Planned module flow
 

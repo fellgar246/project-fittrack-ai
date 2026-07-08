@@ -23,4 +23,10 @@ locals {
   postgres_server_name    = "psql-${var.project_name}-${var.environment}"
   postgres_database_name  = "fittrack_ai"
   log_analytics_workspace = "log-${var.project_name}-${var.environment}"
+  key_vault_name          = lower(substr("kv${replace(local.name_prefix, "-", "")}${var.unique_suffix}", 0, 24))
+
+  api_key_vault_secrets = {
+    "JWT-SECRET-KEY" = var.api_jwt_secret_key
+    "DATABASE-URL"   = var.api_database_url
+  }
 }

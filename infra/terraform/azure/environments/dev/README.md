@@ -23,6 +23,9 @@ terraform plan -var-file="terraform.container-apps-env.example.tfvars"
 
 # Escenario 5 — + Managed Identity + AcrPull + Container App (0 recursos a crear: los 3 ya están en state desde el Bloque 4.13)
 terraform plan -var-file="terraform.container-app.example.tfvars"
+
+# Escenario 6 — + Key Vault + Container App secret wiring (plan-only; no apply en Block 4.14)
+terraform plan -var-file="terraform.key-vault.example.tfvars"
 ```
 
 - **Bloque 4.6**: `terraform apply -var-file="terraform.resource-group.example.tfvars"` ya se
@@ -111,6 +114,13 @@ terraform plan -var-file="terraform.container-app.example.tfvars"
   Este es un deployment **demo/dev**: la Container App sigue usando placeholders para
   `DATABASE_URL`, `JWT_SECRET_KEY` y `AI_PROVIDER=fake` (aceptables solo para validar `/health`).
   Key Vault, secrets reales y Azure PostgreSQL siguen pendientes. Ver la sección "Block 4.13" en
+  [`../../README.md`](../../README.md) para el detalle completo.
+- **Bloque 4.14**: `modules/key_vault` se convirtió en módulo real con RBAC; `container_apps` ahora
+  soporta Key Vault secret references. Se creó `terraform.key-vault.example.tfvars` para previsualizar
+  Key Vault + wiring de secretos. **No se ejecutó `terraform apply`.** Con el Escenario 5
+  (`terraform.container-app.example.tfvars`) el plan sigue mostrando `No changes`. Con el Escenario 6
+  (`terraform.key-vault.example.tfvars`) el plan muestra Key Vault, role assignment, secretos demo y
+  update in-place de la Container App. Ver la sección "Block 4.14" en
   [`../../README.md`](../../README.md) para el detalle completo.
 - `terraform plan` requiere una sesión de Azure activa (`az login`) o `ARM_SUBSCRIPTION_ID`
   exportada — el provider `azurerm` construye un authorizer al configurarse aunque los flags

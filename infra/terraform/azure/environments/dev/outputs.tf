@@ -9,6 +9,7 @@ output "resource_names" {
     postgres_server_name    = local.postgres_server_name
     postgres_database_name  = local.postgres_database_name
     log_analytics_workspace = local.log_analytics_workspace
+    key_vault_name          = local.key_vault_name
   }
 }
 
@@ -110,6 +111,31 @@ output "api_identity_id" {
 output "api_identity_client_id" {
   description = "API managed identity client ID when created. Null when disabled."
   value       = one(module.managed_identities[*].client_id)
+}
+
+output "key_vault_enabled" {
+  description = "Whether Key Vault module is enabled."
+  value       = var.create_key_vault
+}
+
+output "key_vault_name" {
+  description = "Key Vault name when created, otherwise planned name."
+  value       = var.create_key_vault ? module.key_vault[0].name : local.key_vault_name
+}
+
+output "key_vault_id" {
+  description = "Key Vault resource ID when created. Null when disabled."
+  value       = var.create_key_vault ? module.key_vault[0].id : null
+}
+
+output "key_vault_uri" {
+  description = "Key Vault URI when created. Null when disabled."
+  value       = var.create_key_vault ? module.key_vault[0].vault_uri : null
+}
+
+output "key_vault_secret_names" {
+  description = "Names of secrets created in Key Vault. Values are never output."
+  value       = var.create_key_vault ? module.key_vault[0].secret_names : []
 }
 
 output "container_apps_enabled" {
