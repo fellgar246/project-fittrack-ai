@@ -147,6 +147,15 @@ terraform plan -var-file="terraform.postgres.example.tfvars"
   valor. 9 tablas verificadas. API local validada contra DB cloud. Terraform plan final:
   `No changes`. `/health` cloud HTTP 200. Ver sección "Block 4.18" en
   [`../../README.md`](../../README.md).
+- **Bloque 4.19**: Conectividad Container App → PostgreSQL verificada. Regla firewall
+  `allow-aca-egress-01` (egress IP `20.237.42.17`) creada vía Azure CLI. Auth cloud:
+  `POST /auth/register` 201, `POST /auth/login` 200. Usuario `cloud-runtime-test-001@example.com`
+  confirmado en PostgreSQL. Regla local `temp-local-verify` eliminada. Terraform plan final:
+  `No changes`. Ver sección "Block 4.19" en [`../../README.md`](../../README.md).
+- **Bloque 4.20**: Regla `allow-aca-egress-01` modelada en `terraform.postgres.example.tfvars`
+  e importada al state con `terraform import`. Plan pre-import `1 to add`; plan final
+  `No changes`. Sin `terraform apply`. Auth cloud smoke test 201/200. Ver sección "Block 4.20"
+  en [`../../README.md`](../../README.md).
 - `terraform plan` requiere una sesión de Azure activa (`az login`) o `ARM_SUBSCRIPTION_ID`
   exportada — el provider `azurerm` construye un authorizer al configurarse aunque los flags
   `create_*` estén en `false` y no vaya a crear ningún recurso. `terraform validate` y

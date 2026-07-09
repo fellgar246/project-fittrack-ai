@@ -364,7 +364,34 @@ az postgres flexible-server firewall-rule delete \
 - `alembic/env.py` escapa `%` en URLs con passwords URL-encoded (Azure Key Vault).
 - No ejecutar migraciones al arranque del contenedor (evita race conditions con réplicas).
 - Private networking para PostgreSQL queda para un bloque de hardening futuro.
-- La Container App en cloud aún no valida conectividad DB en `/health` — Block 4.19.
+- La Container App en cloud ya conecta a PostgreSQL en runtime (Block 4.19); `/health` sigue sin
+  validar DB — la prueba real es el flujo auth.
+
+### Azure Container App runtime (Block 4.19 — completed)
+
+La API en cloud (`ca-fittrack-ai-api-dev`) usa `DATABASE_URL` desde Key Vault y conecta a
+Azure PostgreSQL. Verificación mínima contra el endpoint cloud:
+
+```bash
+API_URL="https://ca-fittrack-ai-api-dev--0000001.wittydune-377fa2b0.eastus.azurecontainerapps.io"
+
+# Register (campo name, no full_name)
+curl -i -X POST "$API_URL/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"cloud-runtime-test-001@example.com","password":"DevOnlyTest123!","name":"Cloud Runtime Test"}'
+# Esperado: HTTP 201
+
+curl -i -X POST "$API_URL/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"cloud-runtime-test-001@example.com","password":"DevOnlyTest123!"}'
+# Esperado: HTTP 200 (no pegar bearer token en documentación)
+```
+
+**Notas:**
+
+- Conectividad habilitada con regla firewall `allow-aca-egress-01` (egress IP Container App).
+- Alembic no se re-ejecuta — schema aplicado en Block 4.18.
+- Networking privado queda para hardening futuro (Block 4.20+).
 
 Las migraciones de estos bloques (`workout_plans`/`workout_days`/`exercises` en 2.3,
 `workout_logs` en 2.4, `nutrition_logs` en 2.5, `body_measurements` en 2.6) ya están

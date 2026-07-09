@@ -56,6 +56,11 @@ postgres_backup_retention_days         = 7
 postgres_public_network_access_enabled = true
 postgres_location                      = "centralus"
 
-# Default: no external firewall rules.
-# Add your current public IP only when you intentionally need direct local access.
-postgres_allowed_firewall_rules = {}
+# ACA egress IP for Container App → PostgreSQL connectivity (Block 4.19/4.20).
+# Imported into Terraform state via terraform import in Block 4.20.
+postgres_allowed_firewall_rules = {
+  allow-aca-egress-01 = {
+    start_ip_address = "20.237.42.17"
+    end_ip_address   = "20.237.42.17"
+  }
+}

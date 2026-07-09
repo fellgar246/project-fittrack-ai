@@ -1,8 +1,8 @@
 # Module: postgres_flexible
 
 **Status:** implemented in Block 4.16 — applied in Block 4.17 — Alembic migrated in Block 4.18
-— gated by `create_postgres` (default `false`, set to `true` in `terraform.postgres.example.tfvars`)
-in `environments/dev`.
+— ACA firewall imported in Block 4.20 — gated by `create_postgres` (default `false`, set to `true`
+in `terraform.postgres.example.tfvars`) in `environments/dev`.
 
 ## Purpose
 
@@ -93,7 +93,8 @@ Alembic migrations against this server are a separate, explicit step. Block 4.18
 
 - Firewall rule `temp-local-alembic` added via Azure CLI (single local IP), not Terraform.
 - `DATABASE_URL` retrieved from Key Vault; password and connection string never exposed.
-- Rule removed after migration; `postgres_allowed_firewall_rules = {}` unchanged in Terraform.
+- Rule removed after migration; `postgres_allowed_firewall_rules` was `{}` until Block 4.20
+  imported `allow-aca-egress-01` (ACA egress IP).
 - Private networking deferred to a future hardening block.
 
 To repeat migrations safely:
@@ -127,6 +128,8 @@ az postgres flexible-server firewall-rule delete \
 - **Block 4.16** — Module implemented; plan validated, no apply.
 - **Block 4.17** — Apply completed: PostgreSQL server, database, and Key Vault `DATABASE-URL` wiring.
 - **Block 4.18** — Alembic `upgrade head` applied; schema verified in Azure PostgreSQL.
+- **Block 4.19** — ACA egress firewall rule `allow-aca-egress-01` created via Azure CLI; cloud auth verified.
+- **Block 4.20** — Firewall rule imported into Terraform state via `terraform import`; `postgres_allowed_firewall_rules` now models ACA egress IP `20.237.42.17`. No `terraform apply` required.
 
 ## Teardown (future, do not run casually)
 

@@ -1629,13 +1629,165 @@ Container App. **No ejecutar salvo rollback intencional.**
 
 ## Siguiente paso recomendado
 
-Continuar con **Bloque 4.19 — Container App Database Runtime Verification**:
+Continuar con **Bloque 4.21 — Cloud API Functional Smoke Test**:
 
-- Habilitar conectividad Container App → PostgreSQL (firewall para egress IP o networking privado).
-- Verificar que la API en cloud arranca y usa `DATABASE-URL` real.
-- Agregar readiness check de DB si aplica.
-- Flujo auth mínimo contra PostgreSQL cloud.
-- Sin re-ejecutar migraciones (ya aplicadas en Block 4.18).
+- Validar endpoints principales en cloud con PostgreSQL real: register/login, body measurements,
+  nutrition logs, workout plans, workout logs, weekly summary, fake AI recommendation.
+- Demostrar que la API cloud funciona end-to-end más allá de auth.
+
+Alternativa posterior: **Block 4.22 — Private Networking Plan** (VNet, Private DNS, acceso
+privado, NAT Gateway / egress estable).
+
+## Block 4.20 — Terraformize PostgreSQL Firewall / ACA Egress
+
+Status: **completed**.
+
+### Objetivo
+
+Traer bajo gestión de Terraform la regla firewall creada manualmente en Block 4.19, usando
+`terraform import` sin recrear la regla ni ejecutar `terraform apply`.
+
+### Alcance completado
+
+1. Baseline Terraform: `fmt`, `init`, `validate`, plan inicial `No changes`.
+2. Firewall Azure verificado: `allow-aca-egress-01` → `20.237.42.17`.
+3. `/health` cloud pre-import: HTTP 200.
+4. `terraform.postgres.example.tfvars` actualizado con `postgres_allowed_firewall_rules`.
+5. Plan pre-import: `1 to add` (firewall rule).
+6. `terraform import` exitoso al address
+   `module.postgres_flexible[0].azurerm_postgresql_flexible_server_firewall_rule.this["allow-aca-egress-01"]`.
+7. `terraform state list` confirma la regla importada.
+8. Plan final: `No changes`.
+9. `/health` cloud post-import: HTTP 200.
+10. Auth smoke test: `POST /auth/register` 201, `POST /auth/login` 200
+    (`cloud-firewall-iac-test-001@example.com`).
+11. Logs Container App: sin errores DB/KV.
+12. Backend: `uv run ruff check .` limpio; pytest no ejecutado (Docker daemon inactivo).
+13. Documentación actualizada.
+
+### Decisiones técnicas
+
+1. **`terraform import` (Opción A)** — reconcilia drift manual sin romper conectividad activa.
+2. **Regla ya existía y funcionaba** desde Block 4.19; no se borró ni recreó.
+3. **Modelada en `postgres_allowed_firewall_rules`** — Terraform vuelve a ser fuente de verdad.
+4. **Sin `terraform apply`** — import alinea state con Azure; plan final limpio.
+5. **Sin fallback `0.0.0.0`** — solo egress IP específica `20.237.42.17`.
+6. **Sin IP local** — no se agregaron reglas temporales.
+7. **Conectividad dev/portfolio-grade** — producción requiere VNet/NAT/private access.
+8. **Sin cambios en Container App, Key Vault, backend ni Alembic.**
+
+### Imported firewall rule
+
+```text
+allow-aca-egress-01 → 20.237.42.17
+```
+
+Reason: permite egress de Azure Container Apps hacia el endpoint público de PostgreSQL en la
+arquitectura dev/portfolio actual.
+
+### Import command
+
+```bash
+terraform import \
+  -var-file="terraform.postgres.example.tfvars" \
+  'module.postgres_flexible[0].azurerm_postgresql_flexible_server_firewall_rule.this["allow-aca-egress-01"]' \
+  "/subscriptions/<redacted>/resourceGroups/rg-fittrack-ai-dev/providers/Microsoft.DBforPostgreSQL/flexibleServers/psql-fittrack-ai-pg-dev01/firewallRules/allow-aca-egress-01"
+```
+
+### Verificación post-import
+
+- Terraform state: regla importada con `start_ip_address` y `end_ip_address` = `20.237.42.17`.
+- Plan final: `No changes`.
+- API cloud: `/health` 200; auth 201/200.
+- No se ejecutó `terraform apply` ni `terraform destroy`.
+- No se expusieron secretos.
+
+### Importante
+
+Este diseño de red sigue siendo dev/portfolio. Para producción, preferir:
+
+- VNet integration
+- stable egress via NAT Gateway
+- private PostgreSQL access
+- Private DNS
+
+El drift manual de Block 4.19 quedó resuelto en este bloque (ver decisión técnica #3 de
+Block 4.19).
+
+## Block 4.19 — Container App Database Runtime Verification
+
+Status: **completed**.
+
+### Objetivo
+
+Verificar que la API en Azure Container Apps conecta a Azure PostgreSQL usando `DATABASE_URL` real
+desde Key Vault — sin re-ejecutar migraciones Alembic ni modificar infraestructura Terraform.
+
+### Alcance completado
+
+1. Terraform plan inicial: `No changes`.
+2. `/health` cloud: HTTP 200.
+3. Secret references verificados (nombres `jwt-secret-key`, `database-url`; env
+   `JWT_SECRET_KEY`, `DATABASE_URL`, `AI_PROVIDER`) sin exponer valores.
+4. Firewall PostgreSQL revisado: sin reglas activas al inicio (post-cleanup Block 4.18).
+5. Egress investigado: Container App `outboundIpAddresses` = `20.237.42.17`; CAE `staticIp` =
+   `40.76.174.198` (inbound); CAE `outboundIpAddresses` = null.
+6. Regla firewall mínima creada vía Azure CLI: `allow-aca-egress-01` → `20.237.42.17`.
+7. `POST /auth/register` cloud → HTTP 201 (`cloud-runtime-test-001@example.com`).
+8. `POST /auth/login` cloud → HTTP 200 (bearer token; no documentado).
+9. Usuario confirmado en Azure PostgreSQL vía query local segura (Key Vault + regla temporal
+   `temp-local-verify`, eliminada tras verificación).
+10. Logs Container App: sin errores de Key Vault, DB connection refused, timeout ni SSL.
+11. Terraform plan final: `No changes`.
+12. Backend: `uv run ruff check .` limpio; pytest no ejecutado (Docker daemon inactivo; sin cambios
+    de código).
+13. Documentación actualizada.
+
+### Decisiones técnicas
+
+1. **Conectividad dev/portfolio (Opción A)** — firewall mínimo; networking privado diferido.
+2. **Regla por egress IP específica** — `allow-aca-egress-01` para `20.237.42.17` (outbound IP del
+   Container App). No fue necesario el fallback `0.0.0.0` (Allow Azure services).
+3. **Firewall vía Azure CLI, no Terraform** — mantiene `postgres_allowed_firewall_rules = {}` y
+   `terraform plan` limpio; drift documentado explícitamente. **Resuelto en Block 4.20** vía
+   `terraform import`.
+4. **`DATABASE_URL` desde Key Vault** — la API cloud usa secret reference + managed identity.
+5. **Alembic no re-ejecutado** — schema ya aplicado en Block 4.18 (HEAD `f16d4cefefc2`).
+6. **`/health` no valida DB** — la prueba real es el flujo auth contra PostgreSQL cloud.
+7. **Sin exponer secretos** — no se imprimió `DATABASE_URL`, passwords ni bearer tokens.
+
+### Temporary PostgreSQL firewall rule
+
+Una regla firewall se agregó manualmente vía Azure CLI para permitir egress de Azure Container
+Apps hacia PostgreSQL.
+
+Rule:
+
+```text
+allow-aca-egress-01 → 20.237.42.17
+```
+
+Reason:
+
+Azure Container Apps necesita acceso de red al endpoint público de PostgreSQL para la
+verificación runtime dev/portfolio.
+
+This is not the final production networking design.
+
+Future hardening should consider:
+
+- VNet integration
+- private PostgreSQL access
+- Private DNS
+- NAT Gateway or stable egress
+
+### Verificación post-runtime
+
+- Container App: `provisioningState=Succeeded`.
+- PostgreSQL firewall final: solo `allow-aca-egress-01` (regla local `temp-local-verify` eliminada).
+- Auth cloud: register 201, login 200.
+- Usuario en DB: `cloud-runtime-test-001@example.com`.
+- No se ejecutó `terraform destroy`. No se re-ejecutó Alembic.
 
 ## Block 4.18 — Azure PostgreSQL Alembic Migration
 
