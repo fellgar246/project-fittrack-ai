@@ -1629,14 +1629,212 @@ Container App. **No ejecutar salvo rollback intencional.**
 
 ## Siguiente paso recomendado
 
-Continuar con **Bloque 4.21 — Cloud API Functional Smoke Test**:
+Continuar con **Block 4.24 — Final Portfolio Release**:
 
-- Validar endpoints principales en cloud con PostgreSQL real: register/login, body measurements,
-  nutrition logs, workout plans, workout logs, weekly summary, fake AI recommendation.
-- Demostrar que la API cloud funciona end-to-end más allá de auth.
+- Release notes, demo script, CV/interview bullets, teardown guide.
 
-Alternativa posterior: **Block 4.22 — Private Networking Plan** (VNet, Private DNS, acceso
-privado, NAT Gateway / egress estable).
+Alternativas posteriores:
+
+- **Block 4.24 — Private Networking Plan** (VNet, Private DNS, acceso privado, NAT Gateway).
+- **Block 4.24 — Mobile Integration Plan** (React Native / Expo consumiendo API cloud).
+
+Documentación Azure OpenAI: [`docs/azure-openai-runtime.md`](../../../docs/azure-openai-runtime.md).
+
+## Block 4.23 — Azure OpenAI Runtime Verification
+
+Status: **completed**.
+
+### Objetivo
+
+Verificar Azure OpenAI real en runtime cloud para recomendaciones semanales: Key Vault-backed
+config, `AI_PROVIDER=azure`, `POST /recommendations/weekly` exitoso.
+
+### Resultado
+
+1. **Terraform apply:** 3 added, 1 changed, 0 destroyed (secretos KV + Container App wiring).
+2. **Container App:** `AI_PROVIDER=azure`, revisión `ca-fittrack-ai-api-dev--0000003`.
+3. **Imagen:** `block-4.23-amd64` (fix `temperature` para `gpt-5-mini`).
+4. **Smoke test cloud:** HTTP 201 en `POST /recommendations/weekly`; persistencia PostgreSQL OK.
+5. Demo user: `cloud-azure-openai-20260709220923@example.com`.
+
+### Fix backend (gpt-5-mini)
+
+`gpt-5-mini` no acepta `temperature=0.4` (solo default). Se eliminó `temperature` del call en
+`backend/app/services/ai_provider.py`. Imagen publicada como `block-4.23-amd64`.
+
+### Alcance completado
+
+1. Variables Terraform: `api_ai_provider`, `api_azure_openai_*`.
+2. `locals.tf` / `main.tf`: secretos KV + wiring Container App condicional.
+3. `terraform.azure-openai.example.tfvars` + `terraform.azure-openai.local.tfvars` (gitignored).
+4. Apply manual con credenciales reales.
+5. Docker build/push `block-4.23-amd64` + `az containerapp update`.
+6. Documentación actualizada.
+
+### Decisiones técnicas
+
+1. **`AI_PROVIDER=azure`** (no `azure_openai`) — coincide con backend existente.
+2. **No se crea recurso Azure OpenAI en Terraform** — solo wiring de config existente.
+3. **Secretos sensibles en Key Vault** — endpoint, API key, deployment; API version como env plano.
+4. **Sin `temperature` en Azure call** — compatibilidad con modelos reasoning (`gpt-5-mini`).
+5. **FakeAIProvider** permanece como fallback documentado vía `terraform.postgres.example.tfvars`.
+
+Runbook: [`docs/azure-openai-runtime.md`](../../../docs/azure-openai-runtime.md).
+
+## Block 4.22 — Portfolio Demo Documentation Polish
+
+Status: **completed**.
+
+### Objetivo
+
+Convertir FitTrack AI en una pieza sólida de portfolio y entrevista técnica: arquitectura,
+decisiones, limitaciones, costos/teardown y narrativa — sin modificar infraestructura ni código.
+
+### Alcance completado
+
+1. Creado [`README.md`](../../../README.md) raíz con overview, stack, arquitectura resumida,
+   endpoints validados, limitaciones y advertencia de teardown.
+2. Creado [`docs/portfolio-demo.md`](../../../docs/portfolio-demo.md) con 16 secciones:
+   executive summary, arquitectura (Mermaid), runtime flow (sequence), infra cloud, endpoints,
+   decisiones, limitaciones, costos/teardown, narrativa de entrevista.
+3. Links cruzados agregados en `backend/README.md`, `docs/cloud-api-smoke-test.md`,
+   `docs/docker-production.md`, `docs/azure-container-apps-deploy.md`.
+4. Terraform plan final: `No changes`.
+5. Backend: ruff limpio; pytest 66 passed.
+6. `/health` cloud: HTTP 200.
+
+### Decisiones técnicas
+
+1. **Solo documentación** — sin cambios en Terraform, backend, Dockerfile, Key Vault ni Container App.
+2. **README raíz conciso** — vende el proyecto en 1–2 pantallas; detalle en portfolio-demo.
+3. **Diagramas Mermaid** — arquitectura (flowchart) y runtime (sequence); primeros del repo.
+4. **Key Vault wording correcto** — ACA resuelve secret references al entorno del contenedor;
+   la API no llama a Key Vault en cada request.
+5. **Sin duplicación excesiva** — docs existentes linkean a portfolio-demo, no repiten contenido.
+6. **Sin secretos** — no tokens, passwords ni `DATABASE_URL` en documentación.
+
+### Verificación post-documentación
+
+- Terraform plan: `No changes`.
+- Backend: `uv run ruff check .` → All checks passed; `uv run pytest` → 66 passed.
+- `/health` cloud: HTTP 200.
+- No se ejecutó `terraform apply`, `terraform destroy`, `docker build`, `docker push` ni Alembic.
+
+Portfolio demo: [`docs/portfolio-demo.md`](../../../docs/portfolio-demo.md).
+
+## Block 4.21 — Cloud API Functional Smoke Test
+
+Status: **completed**.
+
+### Objetivo
+
+Validar que la API desplegada en Azure Container Apps funciona end-to-end más allá de `/health`
+y auth, usando PostgreSQL real, secretos desde Key Vault, schema Alembic ya migrado y
+`FakeAIProvider` para recomendaciones — sin modificar infraestructura ni backend.
+
+### Alcance completado
+
+1. Baseline Terraform plan: `No changes`.
+2. Smoke test HTTP contra URL canónica con usuario demo nuevo.
+3. Flujo completo: auth → measurements → nutrition (3 fechas) → workout plan/log → weekly
+   summary → AI recommendation.
+4. Persistencia verificada en Azure PostgreSQL vía Key Vault (conteos por usuario demo).
+5. Logs Container App revisados: sin errores críticos DB/KV/SQLAlchemy.
+6. Terraform plan final: `No changes`.
+7. Backend: `uv run ruff check .` limpio; `uv run pytest` 66 passed.
+8. Documentación actualizada.
+
+### Decisiones técnicas
+
+1. **Bloque de verificación + docs** — no se modificó Terraform, backend, Dockerfile, Alembic,
+   Key Vault ni Container App config.
+2. **Paths reales del backend** — `GET /auth/me` (no `/users/me`); `/measurements` (no
+   `/body-measurements`).
+3. **Payloads alineados a schemas Pydantic** — `name` en register; `weight`/`waist`/`body_fat_estimate`;
+   `protein`/`carbs`/`fats`; workout plan con `day_of_week`, `title`, `muscle_group`,
+   `target_sets`, `target_reps`; workout log con `performed_at`, `sets`, `reps`.
+4. **Readiness AI** — ≥1 workout log, ≥3 nutrition logs (fechas distintas), ≥1 measurement en la
+   semana; `is_ready_for_ai_recommendation=true` confirmado.
+5. **`AI_PROVIDER=fake`** — recomendaciones determinísticas sin Azure OpenAI.
+6. **Token en variable local** — no documentado ni impreso.
+7. **Verificación DB** — firewall temporal `temp-local-smoke-verify` vía Azure CLI, `DATABASE_URL`
+   desde Key Vault sin imprimir, conteos seguros, regla eliminada al finalizar.
+8. **Alembic no re-ejecutado** — schema ya aplicado en Block 4.18.
+9. **Private networking diferido** — hardening en bloque futuro.
+
+### Usuario demo
+
+```text
+cloud-smoke-20260709081125@example.com
+```
+
+Fecha de ejecución: `2026-07-09T14:11:25Z`.
+
+### Resultados por endpoint
+
+| Área         | Endpoint                        | Resultado |
+| ------------ | ------------------------------- | --------- |
+| Health       | GET /health                     | HTTP 200  |
+| Auth         | POST /auth/register             | HTTP 201  |
+| Auth         | POST /auth/login                | HTTP 200  |
+| User         | GET /auth/me                    | HTTP 200  |
+| Measurements | POST /measurements              | HTTP 201  |
+| Measurements | GET /measurements               | HTTP 200  |
+| Measurements | GET /measurements/progress      | HTTP 200  |
+| Nutrition    | POST /nutrition-logs (×3)       | HTTP 201  |
+| Nutrition    | GET /nutrition-logs             | HTTP 200  |
+| Nutrition    | GET /nutrition-logs/summary     | HTTP 200  |
+| Workouts     | POST /workout-plans             | HTTP 201  |
+| Workouts     | GET /workout-plans              | HTTP 200  |
+| Workouts     | GET /workout-plans/{id}         | HTTP 200  |
+| Workouts     | POST /workout-logs              | HTTP 201  |
+| Workouts     | GET /workout-logs               | HTTP 200  |
+| Workouts     | GET /workout-logs/summary       | HTTP 200  |
+| Weekly       | GET /weekly-summary             | HTTP 200  |
+| AI           | POST /recommendations/weekly    | HTTP 201  |
+| AI           | GET /recommendations/latest     | HTTP 200  |
+
+### Ajustes de payload vs plan original
+
+- `GET /users/me` → **`GET /auth/me`**
+- `/body-measurements` → **`/measurements`**
+- Register: **`name`** (no `full_name`); campo opcional `goal`
+- Measurements: **`weight`**, **`waist`**, **`body_fat_estimate`** (no `weight_kg` / `waist_cm` /
+  `body_fat_percentage`)
+- Nutrition: **`protein`**, **`carbs`**, **`fats`** (no sufijos `_g`)
+- Workout plan: **`day_of_week`**, **`title`**, exercises con **`muscle_group`**, **`target_sets`**,
+  **`target_reps`**
+- Workout log: **`performed_at`**, **`sets`**, **`reps`** (no `date`, `sets_completed`,
+  `reps_completed`)
+
+### Persistencia PostgreSQL
+
+Conteos verificados para el usuario demo (sin exponer `DATABASE_URL`):
+
+```text
+user_exists=True
+body_measurements_count=1
+nutrition_logs_count=3
+workout_plans_count=1
+workout_logs_count=1
+ai_recommendations_count=1
+```
+
+### Logs Container App
+
+- Sin errores de conexión DB, Key Vault access denied, SQLAlchemy ni provider.
+- Requests del smoke test registrados con códigos 200/201 esperados.
+- `GET /` → HTTP 404 (esperado; no hay ruta raíz).
+
+### Verificación post-smoke-test
+
+- Terraform plan final: `No changes`.
+- Backend: `uv run ruff check .` → All checks passed; `uv run pytest` → 66 passed.
+- No se ejecutó `terraform apply`, `terraform destroy`, `alembic upgrade head`, `docker build`
+  ni `docker push`.
+- No se expusieron tokens, passwords, `DATABASE_URL` ni valores de Key Vault.
+
+Runbook detallado: [`docs/cloud-api-smoke-test.md`](../../../docs/cloud-api-smoke-test.md).
 
 ## Block 4.20 — Terraformize PostgreSQL Firewall / ACA Egress
 

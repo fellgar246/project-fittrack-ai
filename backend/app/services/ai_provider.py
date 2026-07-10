@@ -18,10 +18,6 @@ from openai import AsyncAzureOpenAI
 from app.core.config import settings
 from app.schemas.weekly_summary import WeeklySummaryResponse
 
-# Kept low and deterministic: this feature reports on data the user already
-# logged, it does not need creative variation between requests.
-_TEMPERATURE = 0.4
-
 SAFETY_NOTES = (
     "This recommendation is for general fitness habit tracking only and does "
     "not replace medical advice."
@@ -183,7 +179,6 @@ class AzureOpenAIProvider(AIProvider):
                 model=settings.azure_openai_deployment,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
-                temperature=_TEMPERATURE,
             )
         except openai.APITimeoutError as exc:
             raise AIProviderTimeoutError("AI provider timed out") from exc

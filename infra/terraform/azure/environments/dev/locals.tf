@@ -25,8 +25,19 @@ locals {
   log_analytics_workspace = "log-${var.project_name}-${var.environment}"
   key_vault_name          = lower(substr("kv${replace(local.name_prefix, "-", "")}${var.unique_suffix}", 0, 24))
 
-  api_key_vault_secrets = {
-    "JWT-SECRET-KEY" = var.api_jwt_secret_key
-    "DATABASE-URL"   = var.create_postgres ? module.postgres_flexible[0].database_url : var.api_database_url
-  }
+  api_key_vault_secrets = merge(
+    {
+      "JWT-SECRET-KEY" = var.api_jwt_secret_key
+      "DATABASE-URL"   = var.create_postgres ? module.postgres_flexible[0].database_url : var.api_database_url
+    },
+    var.api_azure_openai_endpoint != "" ? {
+      "AZURE-OPENAI-ENDPOINT" = var.api_azure_openai_endpoint
+    } : {},
+    var.api_azure_openai_api_key != "" ? {
+      "AZURE-OPENAI-API-KEY" = var.api_azure_openai_api_key
+    } : {},
+    var.api_azure_openai_deployment != "" ? {
+      "AZURE-OPENAI-DEPLOYMENT" = var.api_azure_openai_deployment
+    } : {},
+  )
 }

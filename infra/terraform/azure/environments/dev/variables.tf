@@ -354,3 +354,41 @@ variable "api_target_port" {
   description = "Container port exposed by the FastAPI API."
   default     = 8000
 }
+
+variable "api_ai_provider" {
+  type        = string
+  description = "AI provider used by the API. fake (default) or azure for Azure OpenAI."
+  default     = "fake"
+
+  validation {
+    condition     = contains(["fake", "azure"], var.api_ai_provider)
+    error_message = "api_ai_provider must be fake or azure."
+  }
+}
+
+variable "api_azure_openai_endpoint" {
+  description = "Azure OpenAI endpoint used by the API."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "api_azure_openai_api_key" {
+  description = "Azure OpenAI API key used by the API."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "api_azure_openai_deployment" {
+  description = "Azure OpenAI deployment name used by the API."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "api_azure_openai_api_version" {
+  description = "Azure OpenAI API version used by the API. Non-secret; passed as plain env var."
+  type        = string
+  default     = ""
+}

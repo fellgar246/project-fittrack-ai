@@ -1,5 +1,8 @@
 # Docker — Production API Image (Bloque 4.1)
 
+> **Portfolio demo:** For the cloud architecture overview, validated flows, and interview narrative,
+> see [Portfolio Demo](./portfolio-demo.md).
+
 This document describes the **production Docker image** for the FitTrack AI backend
 API. The goal of this block is to produce a professional, reproducible, secure and
 well-documented container image, ready to be published later to Azure Container

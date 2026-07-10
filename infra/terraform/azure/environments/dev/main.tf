@@ -170,26 +170,60 @@ module "container_apps" {
   tags                         = local.common_tags
 
   env_vars = merge(
-    { AI_PROVIDER = "fake" },
+    { AI_PROVIDER = var.api_ai_provider },
+    var.api_ai_provider == "azure" && var.api_azure_openai_api_version != "" ? {
+      AZURE_OPENAI_API_VERSION = var.api_azure_openai_api_version
+    } : {},
     var.create_key_vault ? {} : {
       JWT_SECRET_KEY = "dev-only-placeholder-change-before-prod"
       DATABASE_URL   = "postgresql+psycopg://placeholder:placeholder@placeholder:5432/fittrack"
     }
   )
 
-  secrets = var.create_key_vault ? {
-    jwt-secret-key = {
-      key_vault_secret_id = module.key_vault[0].secret_ids["JWT-SECRET-KEY"]
-      identity            = module.managed_identities[0].id
-    }
-    database-url = {
-      key_vault_secret_id = module.key_vault[0].secret_ids["DATABASE-URL"]
-      identity            = module.managed_identities[0].id
-    }
-  } : {}
+  secrets = var.create_key_vault ? merge(
+    {
+      jwt-secret-key = {
+        key_vault_secret_id = module.key_vault[0].secret_ids["JWT-SECRET-KEY"]
+        identity            = module.managed_identities[0].id
+      }
+      database-url = {
+        key_vault_secret_id = module.key_vault[0].secret_ids["DATABASE-URL"]
+        identity            = module.managed_identities[0].id
+      }
+    },
+    var.api_ai_provider == "azure" && var.api_azure_openai_endpoint != "" ? {
+      azure-openai-endpoint = {
+        key_vault_secret_id = module.key_vault[0].secret_ids["AZURE-OPENAI-ENDPOINT"]
+        identity            = module.managed_identities[0].id
+      }
+    } : {},
+    var.api_ai_provider == "azure" && var.api_azure_openai_api_key != "" ? {
+      azure-openai-api-key = {
+        key_vault_secret_id = module.key_vault[0].secret_ids["AZURE-OPENAI-API-KEY"]
+        identity            = module.managed_identities[0].id
+      }
+    } : {},
+    var.api_ai_provider == "azure" && var.api_azure_openai_deployment != "" ? {
+      azure-openai-deployment = {
+        key_vault_secret_id = module.key_vault[0].secret_ids["AZURE-OPENAI-DEPLOYMENT"]
+        identity            = module.managed_identities[0].id
+      }
+    } : {},
+  ) : {}
 
-  secret_env_vars = var.create_key_vault ? {
-    JWT_SECRET_KEY = { secret_name = "jwt-secret-key" }
-    DATABASE_URL   = { secret_name = "database-url" }
-  } : {}
+  secret_env_vars = var.create_key_vault ? merge(
+    {
+      JWT_SECRET_KEY = { secret_name = "jwt-secret-key" }
+      DATABASE_URL   = { secret_name = "database-url" }
+    },
+    var.api_ai_provider == "azure" && var.api_azure_openai_endpoint != "" ? {
+      AZURE_OPENAI_ENDPOINT = { secret_name = "azure-openai-endpoint" }
+    } : {},
+    var.api_ai_provider == "azure" && var.api_azure_openai_api_key != "" ? {
+      AZURE_OPENAI_API_KEY = { secret_name = "azure-openai-api-key" }
+    } : {},
+    var.api_ai_provider == "azure" && var.api_azure_openai_deployment != "" ? {
+      AZURE_OPENAI_DEPLOYMENT = { secret_name = "azure-openai-deployment" }
+    } : {},
+  ) : {}
 }

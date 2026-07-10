@@ -1,5 +1,8 @@
 # FitTrack AI — Backend
 
+> **Portfolio demo:** For the cloud architecture overview, validated flows, tradeoffs, interview
+> narrative, and teardown notes, see [Portfolio Demo](../docs/portfolio-demo.md).
+
 API backend de FitTrack AI. Último bloque de infraestructura: **4.1 — Docker
 Production API Image** (ver [Docker — imagen de producción](#docker--imagen-de-producción-bloque-41)).
 Último bloque de features: **5.2 — Azure OpenAI Integration**.
@@ -392,6 +395,75 @@ curl -i -X POST "$API_URL/auth/login" \
 - Conectividad habilitada con regla firewall `allow-aca-egress-01` (egress IP Container App).
 - Alembic no se re-ejecuta — schema aplicado en Block 4.18.
 - Networking privado queda para hardening futuro (Block 4.20+).
+
+### Cloud API functional smoke test (Block 4.21 — completed)
+
+Smoke test end-to-end contra la API cloud con PostgreSQL real y `FakeAIProvider`. Usuario demo:
+`cloud-smoke-20260709081125@example.com` (2026-07-09). Runbook completo:
+[`docs/cloud-api-smoke-test.md`](../docs/cloud-api-smoke-test.md).
+
+```bash
+API_URL="https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io"
+TEST_RUN_ID="$(date +%Y%m%d%H%M%S)"
+TEST_EMAIL="cloud-smoke-${TEST_RUN_ID}@example.com"
+TEST_PASSWORD="DevOnlyTest123!"
+
+# Health
+curl -i "$API_URL/health"
+# Esperado: HTTP 200
+
+# Register (campo name, no full_name)
+curl -i -X POST "$API_URL/auth/register" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"${TEST_EMAIL}\",\"name\":\"Cloud Smoke Test\",\"password\":\"${TEST_PASSWORD}\",\"goal\":\"body recomposition\"}"
+# Esperado: HTTP 201
+
+# Login — capturar token en variable local, no imprimir ni documentar
+curl -s -X POST "$API_URL/auth/login" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"${TEST_EMAIL}\",\"password\":\"${TEST_PASSWORD}\"}" > /tmp/login_response.json
+ACCESS_TOKEN=$(python3 -c 'import json; print(json.load(open("/tmp/login_response.json")).get("access_token",""))')
+test -n "$ACCESS_TOKEN" && echo "Token captured safely"
+
+# Current user (path real: /auth/me, no /users/me)
+curl -i "$API_URL/auth/me" -H "Authorization: Bearer $ACCESS_TOKEN"
+# Esperado: HTTP 200
+
+TODAY=$(date +%F)
+WEEK_START=$(python3 -c 'from datetime import date, timedelta; t=date.today(); print((t-timedelta(days=t.weekday())).isoformat())')
+
+# Measurements (path real: /measurements)
+curl -i -X POST "$API_URL/measurements" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -d "{\"date\":\"${TODAY}\",\"weight\":70.5,\"waist\":80.0,\"body_fat_estimate\":24.5,\"notes\":\"Cloud smoke test measurement\"}"
+# Esperado: HTTP 201
+
+# Nutrition (3 fechas distintas para weekly summary readiness)
+curl -i -X POST "$API_URL/nutrition-logs" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -d "{\"date\":\"${TODAY}\",\"calories\":2100,\"protein\":120,\"carbs\":250,\"fats\":60,\"notes\":\"Cloud smoke test nutrition log\"}"
+# Repetir con DAY-1 y DAY-2; esperado: HTTP 201 cada uno
+
+# Workout plan → GET detail → extraer exercise_id → workout log → weekly summary → AI
+# Ver docs/cloud-api-smoke-test.md para payloads completos de workout-plans y workout-logs
+```
+
+**Notas:**
+
+- Paths reales difieren del plan conceptual: `/auth/me`, `/measurements` (ver runbook).
+- Weekly summary requiere ≥1 workout log, ≥3 nutrition logs, ≥1 measurement en la semana.
+- `AI_PROVIDER=fake` en Container App — recomendaciones sin Azure OpenAI.
+- Verificación DB: firewall temporal + `DATABASE_URL` desde Key Vault (sin imprimir valor).
+- Terraform, backend, Alembic e imagen Docker no se modificaron en este bloque.
+
+### Azure OpenAI runtime (Block 4.23 — infrastructure ready, validation blocked)
+
+Terraform wiring agregado para `AI_PROVIDER=azure` con secretos Key Vault (`AZURE-OPENAI-ENDPOINT`,
+`AZURE-OPENAI-API-KEY`, `AZURE-OPENAI-DEPLOYMENT`). Apply y smoke test cloud pendientes — sin
+recurso Azure OpenAI ni credenciales locales. Runbook:
+[`docs/azure-openai-runtime.md`](../docs/azure-openai-runtime.md).
 
 Las migraciones de estos bloques (`workout_plans`/`workout_days`/`exercises` en 2.3,
 `workout_logs` en 2.4, `nutrition_logs` en 2.5, `body_measurements` en 2.6) ya están

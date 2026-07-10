@@ -29,6 +29,11 @@ terraform plan -var-file="terraform.key-vault.example.tfvars"
 
 # Escenario 7 — + PostgreSQL Flexible Server (0 recursos a crear si ya aplicado en Bloque 4.17)
 terraform plan -var-file="terraform.postgres.example.tfvars"
+
+# Escenario 8 — Azure OpenAI runtime preview (fake mode: 0-1 change cosmético; azure mode: ~3 add + 1 change)
+terraform plan -var-file="terraform.azure-openai.example.tfvars"
+# Con credenciales reales (local, gitignored):
+# terraform plan -var-file="terraform.azure-openai.example.tfvars" -var-file="terraform.azure-openai.local.tfvars"
 ```
 
 - **Bloque 4.6**: `terraform apply -var-file="terraform.resource-group.example.tfvars"` ya se
@@ -156,6 +161,18 @@ terraform plan -var-file="terraform.postgres.example.tfvars"
   e importada al state con `terraform import`. Plan pre-import `1 to add`; plan final
   `No changes`. Sin `terraform apply`. Auth cloud smoke test 201/200. Ver sección "Block 4.20"
   en [`../../README.md`](../../README.md).
+- **Bloque 4.21**: Smoke test funcional end-to-end en cloud. Usuario demo
+  `cloud-smoke-20260709081125@example.com`. 19 endpoints validados (auth, measurements,
+  nutrition, workouts, weekly summary, FakeAI recommendation). Persistencia confirmada en
+  PostgreSQL. Terraform plan final: `No changes`. Ver sección "Block 4.21" en
+  [`../../README.md`](../../README.md) y runbook [`docs/cloud-api-smoke-test.md`](../../../../docs/cloud-api-smoke-test.md).
+- **Bloque 4.22**: Documentación de portfolio completada. Creados `README.md` raíz y
+  [`docs/portfolio-demo.md`](../../../../docs/portfolio-demo.md) con arquitectura Mermaid,
+  decisiones, limitaciones, costos/teardown y narrativa de entrevista. Sin cambios de infra ni
+  código. Ver sección "Block 4.22" en [`../../README.md`](../../README.md).
+- **Bloque 4.23**: Azure OpenAI runtime verificado en cloud. Apply (3 add, 1 change), `AI_PROVIDER=azure`,
+  imagen `block-4.23-amd64`, smoke test HTTP 201 con `fittrack-gpt-5-mini`. Ver sección "Block 4.23"
+  en [`../../README.md`](../../README.md) y [`docs/azure-openai-runtime.md`](../../../../docs/azure-openai-runtime.md).
 - `terraform plan` requiere una sesión de Azure activa (`az login`) o `ARM_SUBSCRIPTION_ID`
   exportada — el provider `azurerm` construye un authorizer al configurarse aunque los flags
   `create_*` estén en `false` y no vaya a crear ningún recurso. `terraform validate` y

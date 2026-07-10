@@ -1,5 +1,8 @@
 # Azure Container Registry + Container Apps Deploy (Bloque 4.2)
 
+> **Portfolio demo:** For the cloud architecture overview, validated flows, and interview narrative,
+> see [Portfolio Demo](./portfolio-demo.md).
+
 This document describes how to publish the FitTrack AI backend image to **Azure
 Container Registry (ACR)** and run it as a public HTTP API on **Azure Container
 Apps (ACA)**. The goal of this block is to prove the API is no longer local-only:
