@@ -28,7 +28,7 @@ experience.
 ## Planned mobile blocks
 
 ```text
-Block 5.1 — Flutter Mobile App Foundation
+Block 5.1 — Flutter Mobile App Foundation (completed)
 Block 5.2 — Flutter API Client + Auth
 Block 5.3 — Mobile Dashboard
 Block 5.4 — Measurements Flow
@@ -39,6 +39,49 @@ Block 5.8 — Progress Photos + Azure Blob Storage
 Block 5.9 — Observability Polish
 Block 5.10 — Final Portfolio Release
 ```
+
+## Block 5.1 — Completed
+
+### Toolchain
+
+- Flutter 3.13.7 (stable)
+- Dart 3.1.3
+
+### Architecture
+
+Feature-first layout under `mobile/lib/`:
+
+- `app/` — shell, router, theme
+- `core/` — config, constants, errors, API paths
+- `features/` — bootstrap, auth, dashboard placeholders
+- `shared/` — reusable widgets
+
+### Initial dependencies
+
+- `flutter_riverpod`
+- `go_router`
+
+### Environment strategy
+
+Configuration via `--dart-define`:
+
+- `APP_ENV` (`development`, `staging`, `production`)
+- `API_BASE_URL` (validated HTTP/HTTPS URL)
+
+### Application identifier
+
+- `com.fittrackai.fittrack_ai`
+
+### Smoke test platform
+
+Validated on macOS desktop (iOS Simulator and Android Emulator available via `flutter doctor`).
+
+### Out of scope in 5.1
+
+- HTTP client
+- Auth state
+- Secure storage
+- Feature flows
 
 ## MVP mobile scope
 
@@ -61,3 +104,9 @@ The first mobile MVP should include:
 - Advanced charts
 - App Store / Play Store release
 - Full production hardening
+
+## Next block
+
+```text
+Block 5.2 — Flutter API Client + Auth
+```

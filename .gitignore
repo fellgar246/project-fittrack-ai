@@ -10,13 +10,43 @@
 
 # Environment files (any nested project: backend, mobile, etc.)
 **/.env
-**/.env.local
+**/.env.*
+!**/.env.example
+!**/.env.*.example
 
 # Python (backend/ also has its own .gitignore with the full set)
 **/__pycache__/
 **/*.pyc
 **/.venv/
 
-# Node / Expo (future mobile app)
+# Node
 **/node_modules/
-**/.expo/
+
+# Flutter / mobile app
+**/.dart_tool/
+**/.pub-cache/
+**/.pub/
+**/build/
+**/doc/api/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.packages
+**/app.*.symbols
+**/app.*.map.json
+
+# Flutter platform build state
+**/android/.gradle/
+**/android/local.properties
+**/ios/Pods/
+**/ios/.symlinks/
+**/DerivedData/
+**/xcuserdata/
+**/Flutter/ephemeral/
+**/flutter/ephemeral/
+
+# Mobile secrets and signing
+**/*.jks
+**/*.keystore
+**/key.properties
+**/GoogleService-Info.plist
+**/google-services.json

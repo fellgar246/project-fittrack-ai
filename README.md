@@ -25,8 +25,8 @@ FitTrack AI has completed its backend and cloud checkpoint. The FastAPI backend 
 Azure Container Apps, connected to Azure PostgreSQL, configured with Key Vault-managed secrets,
 and validated with Azure OpenAI for weekly fitness recommendations.
 
-The next phase is the Flutter mobile application, which will consume the validated cloud API.
-This is not the final product release.
+The Flutter mobile foundation is established in `mobile/` (Block 5.1). The FastAPI backend
+remains stable and unchanged during the mobile phase. This is not the final product release.
 
 ---
 
@@ -50,7 +50,7 @@ This is not the final product release.
 | Container | Docker multi-stage, non-root runtime |
 | Cloud | Azure Container Apps, ACR, Key Vault, Log Analytics, Azure OpenAI |
 | IaC | Terraform (modular, `azurerm` provider) |
-| Mobile (next phase) | Flutter |
+| Mobile | Flutter (foundation in `mobile/`) |
 
 ---
 
@@ -114,7 +114,7 @@ Full smoke test runbook: [docs/cloud-api-smoke-test.md](docs/cloud-api-smoke-tes
 
 ## Known limitations
 
-- Flutter mobile app not started yet
+- Flutter mobile foundation established in `mobile/` (Block 5.1)
 - Azure OpenAI responses can take ~20–30s (no streaming/timeout tuning yet)
 - PostgreSQL uses public endpoint with narrow ACA egress firewall (dev/portfolio compromise)
 - No private networking, CI/CD pipeline, custom domain, or load testing
@@ -129,6 +129,7 @@ Full smoke test runbook: [docs/cloud-api-smoke-test.md](docs/cloud-api-smoke-tes
 | [docs/portfolio-demo.md](docs/portfolio-demo.md) | Portfolio overview, architecture, interview narrative |
 | [docs/backend-cloud-checkpoint.md](docs/backend-cloud-checkpoint.md) | Backend/cloud release checkpoint |
 | [docs/backend-cloud-demo-checklist.md](docs/backend-cloud-demo-checklist.md) | Safe demo checklist |
+| [mobile/README.md](mobile/README.md) | Flutter mobile client setup and run commands |
 | [docs/mobile-flutter-transition.md](docs/mobile-flutter-transition.md) | Flutter mobile transition notes |
 | [docs/teardown.md](docs/teardown.md) | Cost control and teardown guide |
 | [backend/README.md](backend/README.md) | API reference, local dev, migrations |
@@ -166,9 +167,37 @@ See [backend/README.md](backend/README.md) for full setup.
 
 ---
 
+## Mobile application
+
+The FitTrack AI mobile client is built with Flutter in [`mobile/`](mobile/).
+
+The current mobile foundation includes:
+
+- feature-first project structure;
+- environment configuration through `--dart-define`;
+- centralized theme;
+- declarative navigation;
+- placeholder login and dashboard screens;
+- initial unit and widget tests.
+
+```bash
+cd mobile
+flutter pub get
+flutter run \
+  --dart-define=APP_ENV=development \
+  --dart-define=API_BASE_URL=https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io
+```
+
+See [mobile/README.md](mobile/README.md) for platform-specific local API commands.
+
+The next mobile block will connect the Flutter client to the existing FastAPI cloud API and
+implement authentication.
+
+---
+
 ## Next steps
 
-1. **Block 5.1 — Flutter Mobile App Foundation** — initialize Flutter app, environments, API base URL
+1. **Block 5.2 — Flutter API Client + Auth** — HTTP client, JWT storage, login/register/me
 2. **Private Networking Plan** (deferred) — VNet, private PostgreSQL, NAT Gateway
 3. **Azure Blob Storage** (deferred) — progress photos
 4. **Observability polish** (deferred) — Application Insights dashboards and alerts
