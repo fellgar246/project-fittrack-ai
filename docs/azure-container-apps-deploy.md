@@ -320,8 +320,10 @@ az containerapp update \
     JWT_SECRET_KEY=secretref:jwt-secret-key
 ```
 
-To later switch to real Azure OpenAI, add the four `azure-openai-*` secrets and set
-`AI_PROVIDER=azure` plus the matching `secretref:` env vars.
+**Current cloud state (Block 4.23+):** Azure OpenAI is validated in cloud with `AI_PROVIDER=azure`,
+Key Vault-backed `azure-openai-*` secrets, and image `block-4.23-amd64`. The snippet below shows
+the initial fake-AI deploy pattern from Block 4.13. To switch to Azure OpenAI, add the four
+`azure-openai-*` secrets and set `AI_PROVIDER=azure` plus the matching `secretref:` env vars.
 
 ## 10. ACR pull access (Managed Identity)
 
@@ -551,9 +553,9 @@ end-to-end against the deployed API.
    credentials; secrets live in ACA secrets and are injected at runtime only.
 5. **Managed Identity for ACR pull.** No registry password to store, rotate, or
    leak; access is a scoped `AcrPull` role assignment tied to the app's lifecycle.
-6. **`AI_PROVIDER=fake` for the first deploy.** The fake provider is deterministic
-   and needs no Azure OpenAI credentials, so the first deploy has fewer moving parts
-   and no external AI dependency to fail.
+6. **`AI_PROVIDER=fake` for the first deploy; `azure` for production cloud.** The fake provider
+   is deterministic and needs no Azure OpenAI credentials for initial smoke tests. Cloud now runs
+   `AI_PROVIDER=azure` (Block 4.23 validated). FakeAIProvider remains for local/test/fallback.
 7. **`/health` is enough for the first health check.** It proves the process and
    HTTP stack are alive, which is exactly what a first cloud deploy needs to verify.
 8. **No auto-migrate on startup.** Prevents multiple replicas racing on schema

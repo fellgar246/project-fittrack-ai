@@ -1,7 +1,11 @@
 # FitTrack AI
 
-A cloud-native fitness API demo built to showcase backend engineering, Azure deployment,
-infrastructure as code, and applied AI patterns — not a generic fitness app.
+A cloud-native fitness platform currently validated at the backend and cloud infrastructure
+layer. The backend is built with FastAPI, PostgreSQL, Docker, Terraform and Azure, runs on Azure
+Container Apps from a private Azure Container Registry, uses Managed Identity and Key Vault for
+secure runtime configuration, persists data in Azure PostgreSQL, and generates weekly fitness
+recommendations using Azure OpenAI. This backend/cloud checkpoint prepares the project for the
+next phase: a Flutter mobile client connected to the validated cloud API.
 
 **Live API (dev):** `https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io`
 
@@ -15,13 +19,24 @@ interview talking points, and teardown notes — see **[Portfolio Demo](docs/por
 
 ---
 
+## Current status
+
+FitTrack AI has completed its backend and cloud checkpoint. The FastAPI backend is deployed to
+Azure Container Apps, connected to Azure PostgreSQL, configured with Key Vault-managed secrets,
+and validated with Azure OpenAI for weekly fitness recommendations.
+
+The next phase is the Flutter mobile application, which will consume the validated cloud API.
+This is not the final product release.
+
+---
+
 ## What it demonstrates
 
 - **Backend API** — FastAPI, async SQLAlchemy, PostgreSQL, Alembic migrations, JWT auth
 - **Cloud deployment** — Docker production image → private ACR → Azure Container Apps
 - **Secrets management** — Azure Key Vault with Managed Identity (no static credentials)
 - **Infrastructure as Code** — modular Terraform with incremental `create_*` rollout
-- **Applied AI** — weekly recommendations via Azure OpenAI in cloud (`fittrack-gpt-5-mini`); `FakeAIProvider` fallback documented
+- **Applied AI** — weekly recommendations via Azure OpenAI in cloud (`fittrack-gpt-5-mini`); `FakeAIProvider` for local/test/fallback
 - **End-to-end validation** — 19 cloud endpoints smoke-tested with real PostgreSQL persistence
 
 ---
@@ -33,9 +48,9 @@ interview talking points, and teardown notes — see **[Portfolio Demo](docs/por
 | API | Python 3.11, FastAPI, Pydantic, SQLAlchemy async, Alembic |
 | Database | PostgreSQL 16 (Azure Flexible Server) |
 | Container | Docker multi-stage, non-root runtime |
-| Cloud | Azure Container Apps, ACR, Key Vault, Log Analytics |
+| Cloud | Azure Container Apps, ACR, Key Vault, Log Analytics, Azure OpenAI |
 | IaC | Terraform (modular, `azurerm` provider) |
-| Mobile (planned) | React Native / Expo / TypeScript |
+| Mobile (next phase) | Flutter |
 
 ---
 
@@ -43,11 +58,12 @@ interview talking points, and teardown notes — see **[Portfolio Demo](docs/por
 
 FitTrack AI runs as a FastAPI container on **Azure Container Apps**. The image is stored in a
 private **Azure Container Registry** and pulled using a **User Assigned Managed Identity** with
-`AcrPull`. Runtime secrets (`DATABASE_URL`, `JWT_SECRET_KEY`) live in **Azure Key Vault** and
-are exposed to the app through Key Vault-backed Container App secret references — Azure
-resolves them into the container environment before startup. Data persists in **Azure PostgreSQL
-Flexible Server**; schema migrations are managed by **Alembic**. Infrastructure is defined with
-**Terraform modules** and applied incrementally across 22+ documented blocks.
+`AcrPull`. Runtime secrets (`DATABASE_URL`, `JWT_SECRET_KEY`, Azure OpenAI credentials) live in
+**Azure Key Vault** and are exposed to the app through Key Vault-backed Container App secret
+references — Azure resolves them into the container environment before startup. Data persists in
+**Azure PostgreSQL Flexible Server**; schema migrations are managed by **Alembic**. Weekly
+recommendations use **Azure OpenAI** (`fittrack-gpt-5-mini`). Infrastructure is defined with
+**Terraform modules** and applied incrementally across 24 documented blocks.
 
 ```
 Client → Azure Container Apps (FastAPI)
@@ -55,6 +71,8 @@ Client → Azure Container Apps (FastAPI)
          Azure Key Vault (secrets)
               ↓
          Azure PostgreSQL (fittrack_ai)
+              ↓
+         Azure OpenAI (recommendations)
 ```
 
 ---
@@ -69,7 +87,7 @@ Client → Azure Container Apps (FastAPI)
 | Nutrition | logs + summary | 201 / 200 |
 | Workouts | plans, logs, summaries | 201 / 200 |
 | Weekly | `GET /weekly-summary` | 200 (AI-ready) |
-| AI | weekly recommendation + latest | 201 / 200 |
+| AI | weekly recommendation + latest | 201 / 200 (Azure OpenAI) |
 
 Full smoke test runbook: [docs/cloud-api-smoke-test.md](docs/cloud-api-smoke-test.md)
 
@@ -78,7 +96,7 @@ Full smoke test runbook: [docs/cloud-api-smoke-test.md](docs/cloud-api-smoke-tes
 ## AI capability status
 
 - **Current (cloud):** `AzureOpenAIProvider` — deployment `fittrack-gpt-5-mini` (Block 4.23 validated)
-- **Fallback:** `FakeAIProvider` — deterministic, no external API dependency
+- **Fallback:** `FakeAIProvider` — deterministic local/test provider; no external API dependency
 - **Infrastructure:** Terraform wiring for `AI_PROVIDER=azure` + Key Vault secrets
 - **Details:** [docs/azure-openai-runtime.md](docs/azure-openai-runtime.md)
 
@@ -96,7 +114,7 @@ Full smoke test runbook: [docs/cloud-api-smoke-test.md](docs/cloud-api-smoke-tes
 
 ## Known limitations
 
-- Mobile app not integrated yet
+- Flutter mobile app not started yet
 - Azure OpenAI responses can take ~20–30s (no streaming/timeout tuning yet)
 - PostgreSQL uses public endpoint with narrow ACA egress firewall (dev/portfolio compromise)
 - No private networking, CI/CD pipeline, custom domain, or load testing
@@ -109,8 +127,12 @@ Full smoke test runbook: [docs/cloud-api-smoke-test.md](docs/cloud-api-smoke-tes
 | Document | Purpose |
 |----------|---------|
 | [docs/portfolio-demo.md](docs/portfolio-demo.md) | Portfolio overview, architecture, interview narrative |
+| [docs/backend-cloud-checkpoint.md](docs/backend-cloud-checkpoint.md) | Backend/cloud release checkpoint |
+| [docs/backend-cloud-demo-checklist.md](docs/backend-cloud-demo-checklist.md) | Safe demo checklist |
+| [docs/mobile-flutter-transition.md](docs/mobile-flutter-transition.md) | Flutter mobile transition notes |
+| [docs/teardown.md](docs/teardown.md) | Cost control and teardown guide |
 | [backend/README.md](backend/README.md) | API reference, local dev, migrations |
-| [infra/terraform/azure/README.md](infra/terraform/azure/README.md) | Terraform blocks journal (4.1–4.22) |
+| [infra/terraform/azure/README.md](infra/terraform/azure/README.md) | Terraform blocks journal (4.1–4.24) |
 | [docs/cloud-api-smoke-test.md](docs/cloud-api-smoke-test.md) | Cloud smoke test runbook |
 | [docs/docker-production.md](docs/docker-production.md) | Production Docker image |
 | [docs/azure-container-apps-deploy.md](docs/azure-container-apps-deploy.md) | ACR + ACA deploy guide |
@@ -121,16 +143,12 @@ Full smoke test runbook: [docs/cloud-api-smoke-test.md](docs/cloud-api-smoke-tes
 ## Cost and teardown warning
 
 This demo provisions **real Azure resources** (PostgreSQL, Container Apps, ACR, Key Vault, Log
-Analytics) that may incur cost. Do not leave resources running if not needed.
+Analytics, Azure OpenAI) that may incur cost. Do not leave resources running if not needed.
 
-```bash
-cd infra/terraform/azure/environments/dev
-terraform plan -destroy -var-file="terraform.postgres.example.tfvars"
-```
+See [docs/teardown.md](docs/teardown.md) for the teardown guide.
 
 **Do not run `terraform destroy` unless you intentionally want to remove the demo
-infrastructure.** Review the plan carefully before confirming. See
-[cost and teardown notes](docs/portfolio-demo.md#14-cost-and-teardown-notes).
+infrastructure.** Review the plan carefully before confirming.
 
 ---
 
@@ -150,5 +168,7 @@ See [backend/README.md](backend/README.md) for full setup.
 
 ## Next steps
 
-1. **Block 4.24 — Final Portfolio Release** (tag, polish, teardown checklist)
-3. **Block 4.24 — Private Networking Plan** (VNet, private PostgreSQL, NAT Gateway)
+1. **Block 5.1 — Flutter Mobile App Foundation** — initialize Flutter app, environments, API base URL
+2. **Private Networking Plan** (deferred) — VNet, private PostgreSQL, NAT Gateway
+3. **Azure Blob Storage** (deferred) — progress photos
+4. **Observability polish** (deferred) — Application Insights dashboards and alerts

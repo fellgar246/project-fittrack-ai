@@ -109,7 +109,7 @@ ca-fittrack-ai-api-dev
 Image:
 
 ```text
-acrfittrackaidevdev01.azurecr.io/fittrack-api:block-4.13-amd64
+acrfittrackaidevdev01.azurecr.io/fittrack-api:block-4.23-amd64
 ```
 
 Health endpoint:
@@ -120,5 +120,6 @@ https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io/h
 
 ## Current limitations
 
-Demo/dev deployment. Secret values in Key Vault are placeholders. Real PostgreSQL and
-production-grade secrets come in Block 4.16+.
+Demo/dev deployment. Production-grade hardening (private networking, CI/CD, observability)
+deferred to future blocks. Azure OpenAI validated in cloud (Block 4.23); FakeAIProvider
+available for local/test/fallback.

@@ -127,6 +127,6 @@ terraform apply -var-file="terraform.postgres.example.tfvars"
 
 ## Next step
 
-**Block 4.24 — Final Portfolio Release**.
+**Block 5.1 — Flutter Mobile App Foundation**.
 
-Runbook: [Portfolio Demo](./portfolio-demo.md) | Terraform journal: [infra/terraform/azure/README.md](../infra/terraform/azure/README.md)
+See [Backend & Cloud Checkpoint](./backend-cloud-checkpoint.md) | [Flutter Transition](./mobile-flutter-transition.md)

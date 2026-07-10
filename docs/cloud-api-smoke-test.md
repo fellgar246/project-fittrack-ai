@@ -253,4 +253,6 @@ in cloud (`AI_PROVIDER=azure`, deployment `fittrack-gpt-5-mini`, image `block-4.
 Demo user: `cloud-azure-openai-20260709220923@example.com`. See
 [Azure OpenAI Runtime](./azure-openai-runtime.md).
 
-**Block 4.24 — Final Portfolio Release** — next.
+**Block 4.24 — Backend & Cloud Release Checkpoint** — completed.
+
+**Block 5.1 — Flutter Mobile App Foundation** — next.

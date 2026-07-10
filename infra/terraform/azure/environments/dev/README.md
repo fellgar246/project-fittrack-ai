@@ -173,6 +173,11 @@ terraform plan -var-file="terraform.azure-openai.example.tfvars"
 - **Bloque 4.23**: Azure OpenAI runtime verificado en cloud. Apply (3 add, 1 change), `AI_PROVIDER=azure`,
   imagen `block-4.23-amd64`, smoke test HTTP 201 con `fittrack-gpt-5-mini`. Ver sección "Block 4.23"
   en [`../../README.md`](../../README.md) y [`docs/azure-openai-runtime.md`](../../../../docs/azure-openai-runtime.md).
+- **Bloque 4.24**: Checkpoint backend/cloud completado. Creados `docs/backend-cloud-checkpoint.md`,
+  `docs/backend-cloud-demo-checklist.md`, `docs/teardown.md`, `docs/mobile-flutter-transition.md`.
+  README y docs alineados con imagen `block-4.23-amd64`, Azure OpenAI validado y Flutter como
+  siguiente fase. Terraform example tfvars alineados; drift documentado sin apply. Ver sección
+  "Block 4.24" en [`../../README.md`](../../README.md).
 - `terraform plan` requiere una sesión de Azure activa (`az login`) o `ARM_SUBSCRIPTION_ID`
   exportada — el provider `azurerm` construye un authorizer al configurarse aunque los flags
   `create_*` estén en `false` y no vaya a crear ningún recurso. `terraform validate` y

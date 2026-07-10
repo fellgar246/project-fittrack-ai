@@ -53,7 +53,7 @@ guidance.
 | Container Apps Environment | `cae-fittrack-ai-dev` | Managed runtime environment |
 | Container App | `ca-fittrack-ai-api-dev` | FastAPI API (external ingress) |
 | Managed Identity | `id-fittrack-ai-api-dev` | AcrPull + Key Vault access |
-| Key Vault | `kvfittrackaidevdev01` | `DATABASE_URL`, `JWT_SECRET_KEY` |
+| Key Vault | `kvfittrackaidevdev01` | `DATABASE_URL`, `JWT_SECRET_KEY`, Azure OpenAI secrets |
 | PostgreSQL Flexible Server | `psql-fittrack-ai-pg-dev01` | Database `fittrack_ai` |
 | Log Analytics | `log-fittrack-ai-dev` | Container Apps logging |
 
@@ -216,6 +216,7 @@ calls. Documented rollback via `terraform.postgres.example.tfvars`. See
 |--------|---------|--------|
 | `DATABASE_URL` | Key Vault (`DATABASE-URL`) | Container App secret reference |
 | `JWT_SECRET_KEY` | Key Vault (`JWT-SECRET-KEY`) | Container App secret reference |
+| `AZURE_OPENAI_*` | Key Vault (`AZURE-OPENAI-*`) | Container App secret references (when `AI_PROVIDER=azure`) |
 | ACR pull | Managed Identity (`AcrPull`) | No static credentials |
 | Key Vault read | Managed Identity (`Key Vault Secrets User`) | No static credentials |
 
@@ -246,6 +247,7 @@ Tokens and passwords are never documented.
 | `terraform.container-apps.example.tfvars` | + Container App |
 | `terraform.key-vault.example.tfvars` | + Key Vault + secrets |
 | `terraform.postgres.example.tfvars` | Full stack (+ PostgreSQL + firewall) |
+| `terraform.azure-openai.example.tfvars` | Full stack + Azure OpenAI wiring |
 
 Quickstart: [infra/terraform/azure/environments/dev/README.md](../infra/terraform/azure/environments/dev/README.md)
 
@@ -274,7 +276,7 @@ Block 4.21 validated 19 endpoints against the live cloud API with real PostgreSQ
 | Workouts | GET /workout-logs | 200 | List user logs |
 | Workouts | GET /workout-logs/summary | 200 | Workout aggregation |
 | Weekly | GET /weekly-summary | 200 | Cross-domain aggregation + AI readiness |
-| AI | POST /recommendations/weekly | 201 | Azure OpenAI (`fittrack-gpt-5-mini`) + PostgreSQL persistence |
+| AI | POST /recommendations/weekly | 201 | Block 4.21 used FakeAIProvider; Block 4.23 validated Azure OpenAI |
 | AI | GET /recommendations/latest | 200 | Latest recommendation retrieval |
 
 PostgreSQL counts confirmed: 1 measurement, 3 nutrition logs, 1 plan, 1 workout log, 1
@@ -295,7 +297,7 @@ Full runbook: [cloud-api-smoke-test.md](./cloud-api-smoke-test.md)
 7. **Azure Key Vault for sensitive config** — `DATABASE_URL` and JWT secret outside the image.
 8. **Terraform modular architecture with `create_*` flags** — incremental, cost-controlled rollout.
 9. **Incremental cloud rollout by blocks** — each block documented, validated, and reversible.
-10. **FakeAIProvider as deterministic AI fallback** — safe cloud smoke tests without Azure OpenAI.
+10. **Azure OpenAI in cloud with FakeAI fallback** — real LLM validated in Block 4.23; deterministic fake provider for local/test.
 11. **Public PostgreSQL firewall rule for ACA egress** — dev/portfolio compromise; private networking deferred.
 12. **Manual drift reconciled via Terraform import** — Block 4.19 firewall rule brought under IaC in Block 4.20.
 
@@ -303,7 +305,7 @@ Full runbook: [cloud-api-smoke-test.md](./cloud-api-smoke-test.md)
 
 ## 13. Known limitations
 
-- **Mobile app not integrated** — React Native / Expo planned but not connected to cloud API.
+- **Flutter mobile app not started** — React Native / Expo was the original plan; Flutter is the next phase.
 - **Azure OpenAI latency** — `POST /recommendations/weekly` can take ~20–30s in cloud; no timeout tuning or streaming yet
 - **PostgreSQL public endpoint** — narrow firewall rule for ACA egress only; no VNet/private access.
 - **No private networking** — VNet integration, Private DNS, NAT Gateway not implemented.
@@ -386,8 +388,9 @@ for details. **Do not execute unless intentional rollback.**
 >
 > I ran Alembic migrations against the real Azure PostgreSQL, then smoke-tested 19 endpoints
 > in cloud — not just health checks, but full CRUD flows with PostgreSQL persistence confirmed.
-> For AI recommendations, I used a deterministic FakeAIProvider so the demo works without Azure
-> OpenAI credentials, but the provider abstraction is ready for real LLM integration.
+> For AI recommendations, I validated Azure OpenAI in cloud with deployment `fittrack-gpt-5-mini`
+> (Block 4.23). A deterministic FakeAIProvider remains available for local testing and safe
+> fallback without external API credentials.
 >
 > The main tradeoff I made is public PostgreSQL with a narrow firewall rule instead of private
 > networking — acceptable for a dev/portfolio demo, with a clear path to harden later.
@@ -398,7 +401,7 @@ for details. **Do not execute unless intentional rollback.**
 |-------|-------------|-------------|-----|
 | Container hosting | Container Apps | App Service / AKS | Serverless containers, simpler ops for demo |
 | PostgreSQL access | Public + firewall rule | Private endpoint + VNet | Dev/portfolio speed; hardening deferred |
-| AI provider | FakeAIProvider | Azure OpenAI | Safe smoke tests; abstraction ready for swap |
+| AI provider | Azure OpenAI (cloud) | FakeAIProvider | Real LLM validated; fake for local/test/fallback |
 | IaC structure | Modular `create_*` flags | Monolithic stack | Incremental rollout, cost control |
 | Secrets | Key Vault references | Plain env vars | Production pattern; no secrets in image |
 | Drift handling | `terraform import` | Recreate resource | Preserved working connectivity (Block 4.20) |
@@ -410,10 +413,56 @@ for details. **Do not execute unless intentional rollback.**
 
 | Block | Focus | Why |
 |-------|-------|-----|
-| **4.23 (completed)** | Azure OpenAI runtime verification | `AI_PROVIDER=azure`, image `block-4.23-amd64`, smoke test HTTP 201 |
-| **4.24 (next)** | Final portfolio release | Tag, polish, teardown checklist |
-| **4.24 — Final Portfolio Release** (recommended) | Release notes, demo script, CV bullets | Close the project after AI validates |
-| 4.24 — Private Networking Plan | VNet, private PostgreSQL, NAT Gateway | Hardens architecture for production narrative |
+| **4.24 (completed)** | Backend & Cloud Release Checkpoint | Docs, demo checklist, teardown, Flutter transition |
+| **5.1 (next)** | Flutter Mobile App Foundation | Mobile client for validated cloud API |
+| Private Networking Plan (deferred) | VNet, private PostgreSQL, NAT Gateway | Production hardening |
+| Azure Blob Storage (deferred) | Progress photos | Mobile feature extension |
+
+---
+
+## 17. Resume bullets
+
+- Built and deployed a cloud-native FastAPI backend on Azure Container Apps using Docker, private Azure Container Registry, Managed Identity and Terraform.
+- Implemented secure runtime configuration with Azure Key Vault and connected the API to Azure PostgreSQL Flexible Server.
+- Designed a modular Terraform architecture with incremental apply blocks, feature flags and documented rollback/teardown paths.
+- Validated end-to-end cloud flows across auth, fitness tracking, weekly summaries and Azure OpenAI-powered recommendations.
+- Implemented an end-to-end cloud validation strategy covering infrastructure, application runtime, database connectivity and AI inference using Azure OpenAI.
+
+---
+
+## 18. Interview talking points
+
+### Why Azure Container Apps instead of AKS?
+
+Azure Container Apps was selected because it is simpler and more cost-effective for a portfolio API, while still supporting managed container hosting, revisions, ingress, scaling and integration with Azure resources.
+
+### Why Key Vault instead of plain env vars?
+
+Key Vault keeps sensitive runtime configuration outside the image and source code. The Container App references secrets securely, and Managed Identity reduces the need for long-lived credentials.
+
+### Why Terraform modules with `create_*` flags?
+
+The project was built incrementally. `create_*` flags allowed safe planning and applying one resource group at a time, reducing risk and making each infrastructure block easier to validate.
+
+### Why public PostgreSQL with narrow firewall rule for the demo?
+
+For portfolio scope, a narrow firewall rule allowed the Container App to reach PostgreSQL without adding private networking complexity too early. For production, this should be replaced with private networking.
+
+### What would change for production?
+
+Production improvements would include private networking, stricter firewall controls, CI/CD release pipelines, monitoring dashboards, alerting, load testing, backups, custom domain, stronger auth and secret rotation.
+
+### How was Azure OpenAI integrated safely?
+
+The backend uses a provider abstraction. FakeAI remains available for deterministic local testing, while Azure OpenAI is enabled in cloud through runtime configuration and Key Vault-managed secrets.
+
+### What issue happened with Azure OpenAI?
+
+The first runtime validation failed because `gpt-5-mini` rejected a non-default temperature parameter. The fix removed the custom `temperature` value, allowing the deployment to use its supported default.
+
+### What is the next phase?
+
+The next phase is building the Flutter mobile client that consumes the validated cloud API.
 
 ---
 
@@ -428,3 +477,7 @@ for details. **Do not execute unless intentional rollback.**
 | Docker production image | [docker-production.md](./docker-production.md) |
 | ACR + ACA deploy guide | [azure-container-apps-deploy.md](./azure-container-apps-deploy.md) |
 | Azure OpenAI runtime | [azure-openai-runtime.md](./azure-openai-runtime.md) |
+| Backend/cloud checkpoint | [backend-cloud-checkpoint.md](./backend-cloud-checkpoint.md) |
+| Demo checklist | [backend-cloud-demo-checklist.md](./backend-cloud-demo-checklist.md) |
+| Teardown guide | [teardown.md](./teardown.md) |
+| Flutter transition | [mobile-flutter-transition.md](./mobile-flutter-transition.md) |

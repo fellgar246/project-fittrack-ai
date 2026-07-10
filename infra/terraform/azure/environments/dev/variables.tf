@@ -321,8 +321,8 @@ variable "log_analytics_retention_in_days" {
 
 variable "api_image_tag" {
   type        = string
-  description = "Docker image tag for the FitTrack AI API, published to the ACR by Block 4.9."
-  default     = "block-4.9"
+  description = "Docker image tag for the FitTrack AI API published to ACR. Use linux/amd64 tags (block-4.13-amd64 or later); block-4.9 was arm64 and is rejected by Azure Container Apps."
+  default     = "block-4.23-amd64"
 }
 
 variable "api_cpu" {

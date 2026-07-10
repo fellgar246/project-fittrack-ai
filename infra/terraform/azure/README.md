@@ -189,7 +189,7 @@ provider "azurerm" {
 | `create_monitoring` | bool | `false` | Habilita `module.monitoring`. Requiere `create_resource_group=true` (validado). |
 | `log_analytics_sku` | string | `"PerGB2018"` | `Free` o `PerGB2018`. |
 | `log_analytics_retention_in_days` | number | `30` | Entre 30 y 730 días. |
-| `api_image_tag` | string | `"block-4.13-amd64"` | Tag de la imagen del backend ya publicada en ACR (rebuild `linux/amd64` del Bloque 4.13; el tag `block-4.9` original era `linux/arm64` y Azure Container Apps lo rechaza). |
+| `api_image_tag` | string | `"block-4.23-amd64"` | Tag de la imagen del backend publicada en ACR. `block-4.23-amd64` es la imagen cloud actual con fix Azure OpenAI; `block-4.13-amd64` fue el primer rebuild `linux/amd64`; `block-4.9` era `linux/arm64` y Azure Container Apps lo rechaza. |
 | `api_cpu` | number | `0.25` | CPU asignada a la Container App de la API. |
 | `api_memory` | string | `"0.5Gi"` | Memoria asignada a la Container App de la API. |
 | `api_min_replicas` | number | `0` | Mínimo de réplicas (permite scale-to-zero). |
@@ -1629,16 +1629,46 @@ Container App. **No ejecutar salvo rollback intencional.**
 
 ## Siguiente paso recomendado
 
-Continuar con **Block 4.24 — Final Portfolio Release**:
+Continuar con **Block 5.1 — Flutter Mobile App Foundation**:
 
-- Release notes, demo script, CV/interview bullets, teardown guide.
+- Crear carpeta `mobile/`, inicializar Flutter, environments, API base URL, navegación y theme.
 
-Alternativas posteriores:
+Alternativas posteriores (deferred):
 
-- **Block 4.24 — Private Networking Plan** (VNet, Private DNS, acceso privado, NAT Gateway).
-- **Block 4.24 — Mobile Integration Plan** (React Native / Expo consumiendo API cloud).
+- **Private Networking Plan** (VNet, Private DNS, acceso privado, NAT Gateway).
+- **Azure Blob Storage** (fotos de progreso).
+- **Observability polish** (Application Insights dashboards y alertas).
 
-Documentación Azure OpenAI: [`docs/azure-openai-runtime.md`](../../../docs/azure-openai-runtime.md).
+Documentación checkpoint: [`docs/backend-cloud-checkpoint.md`](../../../docs/backend-cloud-checkpoint.md).
+
+## Block 4.24 — Backend & Cloud Release Checkpoint
+
+Status: **completed**.
+
+### Objetivo
+
+Cerrar formalmente la fase backend/cloud como checkpoint profesional de portfolio antes de
+iniciar Flutter mobile. Sin nuevas features ni `terraform destroy`.
+
+### Alcance completado
+
+1. Verificación Git limpio; secretos locales ignorados y no staged.
+2. Runtime cloud validado: `/health` HTTP 200, imagen `block-4.23-amd64`, `AI_PROVIDER=azure`.
+3. Terraform drift documentado: example tfvars alineados a `block-4.23-amd64`; no apply (evita downgrade).
+4. Documentos creados: checkpoint, demo checklist, teardown, transición Flutter.
+5. README y docs existentes alineados con Azure OpenAI real y Flutter como siguiente fase.
+6. Bullets de CV/entrevista agregados a `docs/portfolio-demo.md`.
+
+### Estado final cloud
+
+- Imagen: `acrfittrackaidevdev01.azurecr.io/fittrack-api:block-4.23-amd64`
+- Revisión: `ca-fittrack-ai-api-dev--0000003`
+- Azure OpenAI: validado en Block 4.23
+- FakeAIProvider: local/test/fallback documentado
+
+### Siguiente fase
+
+**Block 5.1 — Flutter Mobile App Foundation** — ver [`docs/mobile-flutter-transition.md`](../../../docs/mobile-flutter-transition.md).
 
 ## Block 4.23 — Azure OpenAI Runtime Verification
 

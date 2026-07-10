@@ -3,9 +3,9 @@
 > **Portfolio demo:** For the cloud architecture overview, validated flows, tradeoffs, interview
 > narrative, and teardown notes, see [Portfolio Demo](../docs/portfolio-demo.md).
 
-API backend de FitTrack AI. Último bloque de infraestructura: **4.1 — Docker
-Production API Image** (ver [Docker — imagen de producción](#docker--imagen-de-producción-bloque-41)).
-Último bloque de features: **5.2 — Azure OpenAI Integration**.
+API backend de FitTrack AI. Último bloque de infraestructura: **4.24 — Backend & Cloud Release
+Checkpoint** (ver [Checkpoint backend/cloud](../docs/backend-cloud-checkpoint.md)).
+Último bloque de features backend: **5.2 — Azure OpenAI Integration**.
 
 ## Stack
 
@@ -454,16 +454,19 @@ curl -i -X POST "$API_URL/nutrition-logs" \
 
 - Paths reales difieren del plan conceptual: `/auth/me`, `/measurements` (ver runbook).
 - Weekly summary requiere ≥1 workout log, ≥3 nutrition logs, ≥1 measurement en la semana.
-- `AI_PROVIDER=fake` en Container App — recomendaciones sin Azure OpenAI.
+- `AI_PROVIDER=azure` en Container App — recomendaciones con Azure OpenAI (`fittrack-gpt-5-mini`).
+- Block 4.21 usó `AI_PROVIDER=fake` con `FakeAIProvider` para smoke test determinístico.
 - Verificación DB: firewall temporal + `DATABASE_URL` desde Key Vault (sin imprimir valor).
 - Terraform, backend, Alembic e imagen Docker no se modificaron en este bloque.
 
-### Azure OpenAI runtime (Block 4.23 — infrastructure ready, validation blocked)
+### Azure OpenAI runtime (Block 4.23 — completed)
 
-Terraform wiring agregado para `AI_PROVIDER=azure` con secretos Key Vault (`AZURE-OPENAI-ENDPOINT`,
-`AZURE-OPENAI-API-KEY`, `AZURE-OPENAI-DEPLOYMENT`). Apply y smoke test cloud pendientes — sin
-recurso Azure OpenAI ni credenciales locales. Runbook:
-[`docs/azure-openai-runtime.md`](../docs/azure-openai-runtime.md).
+Azure OpenAI validado en cloud con `AI_PROVIDER=azure`, secretos Key Vault
+(`AZURE-OPENAI-ENDPOINT`, `AZURE-OPENAI-API-KEY`, `AZURE-OPENAI-DEPLOYMENT`), imagen
+`block-4.23-amd64` y smoke test `POST /recommendations/weekly` → HTTP 201. Fix aplicado:
+se eliminó `temperature` del call en `ai_provider.py` porque `gpt-5-mini` sólo acepta el
+valor default. `FakeAIProvider` permanece disponible para local/test/fallback vía
+`AI_PROVIDER=fake`. Runbook: [`docs/azure-openai-runtime.md`](../docs/azure-openai-runtime.md).
 
 Las migraciones de estos bloques (`workout_plans`/`workout_days`/`exercises` en 2.3,
 `workout_logs` en 2.4, `nutrition_logs` en 2.5, `body_measurements` en 2.6) ya están
@@ -1919,7 +1922,7 @@ logs cambian después).
       / diagnósticos.
 - [x] Variables `AI_PROVIDER` + `AZURE_OPENAI_*` en `.env.example`; el fake
       provider funciona sin ellas.
-- [x] `uv run pytest` pasa (58 tests: los 48 previos + 10 de recomendaciones,
+- [x] `uv run pytest` pasa (66 tests: los 48 previos + 18 de recomendaciones/AI,
       todos en verde).
 - [x] `uv run ruff check .` limpio.
 - [x] Sin secretos hardcodeados; todo vía `.env` / `pydantic-settings`.
@@ -1939,6 +1942,5 @@ logs cambian después).
 
 ## Siguiente paso recomendado
 
-**Bloque 4.1 — Docker Production API Image**: preparará el backend para deploy
-real en Azure Container Apps (Dockerfile de producción, variables de entorno,
-health check, comando de arranque y documentación local vs cloud).
+**Block 5.1 — Flutter Mobile App Foundation**: crear el cliente mobile Flutter que consuma la
+API cloud validada. Ver [`docs/mobile-flutter-transition.md`](../docs/mobile-flutter-transition.md).

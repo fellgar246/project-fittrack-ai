@@ -33,7 +33,7 @@ acr_admin_enabled = false
 log_analytics_sku               = "PerGB2018"
 log_analytics_retention_in_days = 30
 
-api_image_tag    = "block-4.13-amd64"
+api_image_tag    = "block-4.23-amd64"
 api_cpu          = 0.25
 api_memory       = "0.5Gi"
 api_min_replicas = 0
