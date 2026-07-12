@@ -15,7 +15,7 @@ void main() {
     await pumpUntilStable(tester);
 
     expect(find.widgetWithText(FilledButton, 'Sign in'), findsOneWidget);
-    expect(find.text('Fitness overview'), findsNothing);
+    expect(find.text('Hello, Demo'), findsNothing);
   });
 
   testWidgets('authenticated user is redirected to dashboard', (tester) async {
@@ -28,8 +28,8 @@ void main() {
     );
     await pumpUntilStable(tester);
 
-    expect(find.text('Fitness overview'), findsOneWidget);
-    expect(find.text('Signed in as user@example.com'), findsOneWidget);
+    expect(find.text('Hello, Demo'), findsOneWidget);
+    expect(find.text('Goal: body recomposition'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Sign in'), findsNothing);
   });
 
@@ -44,7 +44,7 @@ void main() {
     await pumpUntilStable(tester);
 
     expect(find.widgetWithText(FilledButton, 'Sign in'), findsNothing);
-    expect(find.text('Fitness overview'), findsOneWidget);
+    expect(find.text('Hello, Demo'), findsOneWidget);
   });
 
   testWidgets('logout redirects to login', (tester) async {
@@ -61,7 +61,7 @@ void main() {
     await pumpUntilStable(tester);
 
     expect(find.widgetWithText(FilledButton, 'Sign in'), findsOneWidget);
-    expect(find.text('Fitness overview'), findsNothing);
+    expect(find.text('Hello, Demo'), findsNothing);
   });
 
   testWidgets('dashboard does not show token', (tester) async {

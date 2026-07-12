@@ -25,10 +25,9 @@ FitTrack AI has completed its backend and cloud checkpoint. The FastAPI backend 
 Azure Container Apps, connected to Azure PostgreSQL, configured with Key Vault-managed secrets,
 and validated with Azure OpenAI for weekly fitness recommendations.
 
-The Flutter mobile foundation is established in `mobile/` (Block 5.1). Block 5.2 adds a real API
-client, authentication, secure JWT storage, and protected navigation against the cloud API. The
-FastAPI backend remains stable and unchanged during the mobile phase. This is not the final
-product release.
+The Flutter mobile foundation, authentication flow, and functional cloud-backed dashboard are
+implemented through Block 5.3. The FastAPI backend remains stable and unchanged during the mobile
+phase. This is not the final product release.
 
 ---
 
@@ -117,7 +116,7 @@ Full smoke test runbook: [docs/cloud-api-smoke-test.md](docs/cloud-api-smoke-tes
 ## Known limitations
 
 - Flutter mobile foundation established in `mobile/` (Block 5.1)
-- Mobile auth implemented (Block 5.2); fitness dashboard features still placeholder
+- Mobile auth and the fitness dashboard are implemented; feature CRUD flows remain placeholders
 - Azure OpenAI responses can take ~20–30s (no streaming/timeout tuning yet)
 - PostgreSQL uses public endpoint with narrow ACA egress firewall (dev/portfolio compromise)
 - No private networking, CI/CD pipeline, custom domain, or load testing
@@ -135,6 +134,7 @@ Full smoke test runbook: [docs/cloud-api-smoke-test.md](docs/cloud-api-smoke-tes
 | [mobile/README.md](mobile/README.md) | Flutter mobile client setup and run commands |
 | [docs/mobile-flutter-transition.md](docs/mobile-flutter-transition.md) | Flutter mobile transition notes |
 | [docs/flutter-auth.md](docs/flutter-auth.md) | Flutter authentication architecture (Block 5.2) |
+| [docs/flutter-dashboard.md](docs/flutter-dashboard.md) | Flutter dashboard architecture (Block 5.3) |
 | [docs/teardown.md](docs/teardown.md) | Cost control and teardown guide |
 | [backend/README.md](backend/README.md) | API reference, local dev, migrations |
 | [infra/terraform/azure/README.md](infra/terraform/azure/README.md) | Terraform blocks journal (4.1–4.24) |
@@ -171,14 +171,15 @@ See [backend/README.md](backend/README.md) for full setup.
 
 ---
 
-## Mobile application
+## Flutter mobile dashboard
 
-The Flutter client now connects to the FitTrack AI cloud API and supports registration, login,
-secure JWT storage, session restoration, authenticated user loading and logout.
+The authenticated Flutter client now provides a functional dashboard backed by the FitTrack AI
+cloud API.
 
-Authentication state is managed with Riverpod, while go_router protects authenticated routes.
-
-The next block will implement the functional mobile dashboard.
+The dashboard presents the current weekly status, recent progress data, the latest AI
+recommendation and navigation entry points for measurements, nutrition and workouts. It supports
+loading, empty, partial-error and refresh states while reusing the existing secure authentication
+session.
 
 ```bash
 cd mobile
@@ -188,12 +189,14 @@ flutter run \
   --dart-define=API_BASE_URL=https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io
 ```
 
-See [mobile/README.md](mobile/README.md) for platform-specific local API commands and
-[docs/flutter-auth.md](docs/flutter-auth.md) for authentication architecture details.
+See [mobile/README.md](mobile/README.md) for platform-specific local API commands,
+[docs/flutter-auth.md](docs/flutter-auth.md) for authentication details, and
+[docs/flutter-dashboard.md](docs/flutter-dashboard.md) for dashboard contracts and loading
+strategy.
 
 ## Next steps
 
-1. **Block 5.3 — Mobile Dashboard** — functional dashboard with real summary data
+1. **Block 5.4 — Measurements Flow** — list, create, and summarize body measurements
 2. **Private Networking Plan** (deferred) — VNet, private PostgreSQL, NAT Gateway
 3. **Azure Blob Storage** (deferred) — progress photos
 4. **Observability polish** (deferred) — Application Insights dashboards and alerts

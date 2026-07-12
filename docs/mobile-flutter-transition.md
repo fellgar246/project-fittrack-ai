@@ -30,7 +30,7 @@ experience.
 ```text
 Block 5.1 — Flutter Mobile App Foundation (completed)
 Block 5.2 — Flutter API Client + Auth (completed)
-Block 5.3 — Mobile Dashboard
+Block 5.3 — Mobile Dashboard (implementation complete; interactive smoke pending)
 Block 5.4 — Measurements Flow
 Block 5.5 — Nutrition Logs Flow
 Block 5.6 — Workout Flow
@@ -126,6 +126,49 @@ Validated on macOS desktop (iOS Simulator and Android Emulator available via `fl
 - iOS bundle ID differs from documented application ID on Apple targets
 - Local HTTP on Android/iOS may need platform-specific cleartext/ATS config (not required for cloud HTTPS)
 
+## Block 5.3 — Implementation complete
+
+### Real dashboard data
+
+- `GET /weekly-summary?week_start=YYYY-MM-DD` — current local Monday through Sunday; primary
+  dashboard section
+- `GET /measurements/progress` — latest values and simple backend-calculated changes; HTTP 200
+  controlled empty response
+- `GET /recommendations/latest` — latest persisted recommendation; HTTP 404 mapped to valid absence
+- Authenticated identity continues to come from the Block 5.2 auth state
+
+### Models and architecture
+
+- Manual immutable DTOs: `WeeklySummary`, `MeasurementProgress`, `RecommendationSummary`, and
+  aggregate `DashboardData`
+- `DashboardScreen → DashboardController → DashboardRepository → DashboardApi → ApiClient/Dio`
+- Existing bearer interceptor, secure token storage, normalized API errors, and route guards reused
+- Auto-disposed Riverpod controller prevents dashboard data from leaking into a later user session
+
+### Loading and errors
+
+- Weekly summary, measurement progress, and recommendation requests start in parallel
+- Weekly summary is primary and fails globally
+- Optional section failures remain localized and retryable
+- Pull-to-refresh preserves stale data if the refresh fails
+- Recommendation 404 and zero measurement count render explicit empty states
+- No recommendation is generated automatically
+
+### Navigation and scope
+
+- Protected placeholders: `/measurements`, `/nutrition`, `/workouts`, `/weekly-summary`, and
+  `/recommendations`
+- CRUD forms, charts, offline persistence, and progress photos remain deferred
+
+### Smoke test platform
+
+- Automated tests and static analysis run on macOS.
+- The cloud OpenAPI contract was verified against the deployed Azure Container Apps endpoint.
+- The macOS Flutter app builds and launches against the cloud URL. Cloud register, login,
+  `/auth/me`, and empty dashboard contracts were exercised with ephemeral in-memory credentials.
+- Interactive login/dashboard/logout could not be automated because macOS denied assistive access;
+  this remains the final acceptance check before marking the block completed.
+
 ## MVP mobile scope
 
 The first mobile MVP should include:
@@ -151,5 +194,5 @@ The first mobile MVP should include:
 ## Next block
 
 ```text
-Block 5.3 — Mobile Dashboard
+Block 5.4 — Measurements Flow
 ```

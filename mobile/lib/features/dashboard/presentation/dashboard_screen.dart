@@ -1,42 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../app/router/app_routes.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../shared/widgets/app_scaffold.dart';
-import '../../../shared/widgets/placeholder_feature_card.dart';
+import '../../auth/data/models/authenticated_user.dart';
 import '../../auth/presentation/auth_controller.dart';
+import 'dashboard_controller.dart';
+import 'dashboard_state.dart';
+import 'widgets/dashboard_widgets.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
-  static const _features = [
-    (
-      title: 'Measurements',
-      description: 'Coming in Block 5.4',
-    ),
-    (
-      title: 'Nutrition',
-      description: 'Coming in Block 5.5',
-    ),
-    (
-      title: 'Workouts',
-      description: 'Coming in Block 5.6',
-    ),
-    (
-      title: 'Weekly Summary',
-      description: 'Coming in Block 5.7',
-    ),
-    (
-      title: 'AI Recommendation',
-      description: 'Coming in Block 5.7',
-    ),
-  ];
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authControllerProvider);
-    final user = authState.user;
-    final theme = Theme.of(context);
+    final dashboardState = ref.watch(dashboardControllerProvider);
+    final controller = ref.read(dashboardControllerProvider.notifier);
 
     return AppScaffold(
       title: 'Dashboard',
@@ -48,44 +30,111 @@ class DashboardScreen extends ConsumerWidget {
           child: const Text('Log out'),
         ),
       ],
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: switch (dashboardState.status) {
+        DashboardStatus.initial ||
+        DashboardStatus.loading =>
+          const DashboardLoadingView(),
+        DashboardStatus.failure => DashboardErrorView(
+            message: dashboardState.errorMessage ??
+                'Dashboard data could not be loaded.',
+            onRetry: controller.retry,
+          ),
+        DashboardStatus.loaded => _DashboardContent(
+            state: dashboardState,
+            user: authState.user,
+            onRefresh: controller.refresh,
+            onRetry: controller.retry,
+            onRetryMeasurement: controller.retryMeasurement,
+            onRetryRecommendation: controller.retryRecommendation,
+          ),
+      },
+    );
+  }
+}
+
+class _DashboardContent extends StatelessWidget {
+  const _DashboardContent({
+    required this.state,
+    required this.user,
+    required this.onRefresh,
+    required this.onRetry,
+    required this.onRetryMeasurement,
+    required this.onRetryRecommendation,
+  });
+
+  final DashboardState state;
+  final AuthenticatedUser? user;
+  final Future<void> Function() onRefresh;
+  final VoidCallback onRetry;
+  final VoidCallback onRetryMeasurement;
+  final VoidCallback onRetryRecommendation;
+
+  @override
+  Widget build(BuildContext context) {
+    final data = state.data!;
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: ListView(
+        key: const Key('dashboard-scroll-view'),
+        physics: const AlwaysScrollableScrollPhysics(),
         children: [
-          Text(
-            'Fitness overview',
-            style: theme.textTheme.headlineMedium,
+          if (state.isRefreshing) const LinearProgressIndicator(),
+          DashboardHeader(user: user),
+          const SizedBox(height: AppSpacing.lg),
+          if (state.errorMessage != null) ...[
+            RefreshErrorBanner(
+              message: state.errorMessage!,
+              onRetry: onRetry,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+          ],
+          WeeklyStatusCard(summary: data.weeklySummary),
+          const SizedBox(height: AppSpacing.sm),
+          ProgressSummaryCard(
+            progress: data.measurement,
+            errorMessage: data.measurementError,
+            onRetry: onRetryMeasurement,
+            onOpen: () => context.push(AppRoutes.measurements),
           ),
           const SizedBox(height: AppSpacing.sm),
-          if (user != null) ...[
-            Text(
-              'Signed in as ${user.email}',
-              style: theme.textTheme.bodyLarge,
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              '${user.name} · ${user.goal}',
-              style: theme.textTheme.bodyMedium,
-            ),
-          ] else
-            Text(
-              'Authenticated session active.',
-              style: theme.textTheme.bodyMedium,
-            ),
-          const SizedBox(height: AppSpacing.lg),
-          Expanded(
-            child: ListView.separated(
-              itemCount: _features.length,
-              separatorBuilder: (context, index) =>
-                  const SizedBox(height: AppSpacing.sm),
-              itemBuilder: (context, index) {
-                final feature = _features[index];
-                return PlaceholderFeatureCard(
-                  title: feature.title,
-                  description: feature.description,
-                );
-              },
-            ),
+          RecommendationCard(
+            recommendation: data.recommendation,
+            errorMessage: data.recommendationError,
+            isReady: data.weeklySummary.isReadyForRecommendation,
+            onRetry: onRetryRecommendation,
+            onOpen: () => context.push(AppRoutes.recommendations),
           ),
+          const SizedBox(height: AppSpacing.lg),
+          QuickActionsGrid(
+            actions: [
+              QuickAction(
+                label: 'Measurements',
+                icon: Icons.monitor_weight_outlined,
+                onTap: () => context.push(AppRoutes.measurements),
+              ),
+              QuickAction(
+                label: 'Nutrition',
+                icon: Icons.restaurant_outlined,
+                onTap: () => context.push(AppRoutes.nutrition),
+              ),
+              QuickAction(
+                label: 'Workouts',
+                icon: Icons.fitness_center,
+                onTap: () => context.push(AppRoutes.workouts),
+              ),
+              QuickAction(
+                label: 'Weekly summary',
+                icon: Icons.calendar_view_week_outlined,
+                onTap: () => context.push(AppRoutes.weeklySummary),
+              ),
+              QuickAction(
+                label: 'Recommendation',
+                icon: Icons.auto_awesome,
+                onTap: () => context.push(AppRoutes.recommendations),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
         ],
       ),
     );

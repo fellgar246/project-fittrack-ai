@@ -4,9 +4,8 @@ Flutter mobile client for the FitTrack AI cloud-native fitness platform.
 
 ## Overview
 
-This folder contains the FitTrack AI mobile application. Block 5.2 adds a real HTTP client,
-authentication against the cloud API, secure JWT storage, session restoration, protected routes,
-and functional login/register screens.
+This folder contains the FitTrack AI mobile application. Blocks 5.2 and 5.3 provide real cloud
+authentication and a functional fitness dashboard backed by the existing API.
 
 **Application ID:** `com.fittrackai.fittrack_ai`
 
@@ -32,6 +31,16 @@ flutter pub get
 - Register, login, session restore, `/auth/me`, and logout
 - Riverpod auth state and go_router route guards
 - Bootstrap session restoration on app start
+
+## Dashboard status
+
+- Authenticated user name and goal from the existing auth state
+- Real weekly summary and backend-owned recommendation readiness
+- Recent measurement progress with a controlled empty state
+- Latest saved AI recommendation; HTTP 404 is treated as a valid empty state
+- Parallel requests, global and section-level errors, retry, and pull-to-refresh
+- Stable quick-action routes for measurements, nutrition, workouts, weekly summary, and
+  recommendations
 
 ## Run against cloud API
 
@@ -93,23 +102,24 @@ lib/
 
 - App foundation
 - Theme (light/dark)
-- Navigation (`/`, `/login`, `/register`, `/dashboard`)
+- Navigation (`/`, `/login`, `/register`, `/dashboard`) plus protected feature placeholders
 - Environment configuration via `--dart-define`
 - Real authentication flow against FastAPI
 - Bootstrap session restoration
 - Login and register screens
-- Authenticated dashboard placeholder with logout
-- Unit and widget tests (56 tests)
+- Functional authenticated dashboard with logout and real API data
+- Unit and widget coverage for dashboard DTOs, API, repository, controller, UI, refresh, and routes
 
-## Deferred
+## Current limitations
 
-- Functional fitness dashboard
-- Measurements, nutrition, workouts
-- Azure Blob Storage
-- Observability
+- Feature CRUD screens are not implemented
+- No charts or offline cache
+- No recommendation generation from the dashboard
+- No progress photos
+- Azure Blob Storage and mobile observability remain deferred
 
 ## Next block
 
 ```text
-Block 5.3 — Mobile Dashboard
+Block 5.4 — Measurements Flow
 ```

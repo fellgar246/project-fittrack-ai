@@ -7,6 +7,7 @@ import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
 import '../../features/bootstrap/presentation/bootstrap_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
+import '../../shared/widgets/feature_placeholder_screen.dart';
 import 'app_routes.dart';
 import 'auth_router_refresh.dart';
 
@@ -23,7 +24,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isBootstrap = location == AppRoutes.bootstrap;
       final isAuthRoute =
           location == AppRoutes.login || location == AppRoutes.register;
-      final isProtected = location == AppRoutes.dashboard;
+      final isProtected = !isBootstrap && !isAuthRoute;
 
       switch (authState.status) {
         case AuthStatus.initial:
@@ -63,6 +64,46 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.dashboard,
         name: AppRoutes.dashboardName,
         builder: (context, state) => const DashboardScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.measurements,
+        name: AppRoutes.measurementsName,
+        builder: (context, state) => const FeaturePlaceholderScreen(
+          title: 'Measurements',
+          nextBlock: 'Block 5.4',
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.nutrition,
+        name: AppRoutes.nutritionName,
+        builder: (context, state) => const FeaturePlaceholderScreen(
+          title: 'Nutrition',
+          nextBlock: 'Block 5.5',
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.workouts,
+        name: AppRoutes.workoutsName,
+        builder: (context, state) => const FeaturePlaceholderScreen(
+          title: 'Workouts',
+          nextBlock: 'Block 5.6',
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.weeklySummary,
+        name: AppRoutes.weeklySummaryName,
+        builder: (context, state) => const FeaturePlaceholderScreen(
+          title: 'Weekly summary',
+          nextBlock: 'Block 5.7',
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.recommendations,
+        name: AppRoutes.recommendationsName,
+        builder: (context, state) => const FeaturePlaceholderScreen(
+          title: 'Recommendation',
+          nextBlock: 'Block 5.7',
+        ),
       ),
     ],
   );
