@@ -1,50 +1,80 @@
-import 'package:fittrack_ai/app/app.dart';
-import 'package:fittrack_ai/core/config/app_config.dart';
-import 'package:fittrack_ai/core/config/environment.dart';
+import 'package:fittrack_ai/features/auth/data/auth_repository.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../helpers/fake_auth_repository.dart';
+import '../helpers/test_app.dart';
+
 void main() {
-  final testConfig = AppConfig(
-    environment: AppEnvironment.development,
-    apiBaseUrl: Uri.parse('https://api.example.com'),
-  );
-
-  Widget buildTestApp() {
-    return ProviderScope(
-      overrides: [
-        appConfigProvider.overrideWithValue(testConfig),
-      ],
-      child: const FitTrackApp(),
+  testWidgets('unauthenticated user is redirected to login', (tester) async {
+    await tester.pumpWidget(
+      buildTestApp(
+        authRepository: FakeAuthRepository(),
+      ),
     );
-  }
+    await pumpUntilStable(tester);
 
-  testWidgets('navigates from bootstrap to login placeholder', (tester) async {
-    await tester.pumpWidget(buildTestApp());
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Open login'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Sign in'), findsOneWidget);
-    expect(
-      find.text('Auth integration arrives in Block 5.2.'),
-      findsOneWidget,
-    );
+    expect(find.widgetWithText(FilledButton, 'Sign in'), findsOneWidget);
+    expect(find.text('Fitness overview'), findsNothing);
   });
 
-  testWidgets('navigates from bootstrap to dashboard placeholder', (
-    tester,
-  ) async {
-    await tester.pumpWidget(buildTestApp());
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Open dashboard'));
-    await tester.pumpAndSettle();
+  testWidgets('authenticated user is redirected to dashboard', (tester) async {
+    await tester.pumpWidget(
+      buildTestApp(
+        authRepository: FakeAuthRepository(
+          restoreOutcome: const SessionAuthenticated(testUser),
+        ),
+      ),
+    );
+    await pumpUntilStable(tester);
 
     expect(find.text('Fitness overview'), findsOneWidget);
-    expect(find.text('Measurements'), findsOneWidget);
-    expect(find.text('AI Recommendation'), findsOneWidget);
+    expect(find.text('Signed in as user@example.com'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Sign in'), findsNothing);
+  });
+
+  testWidgets('authenticated user cannot access login route', (tester) async {
+    await tester.pumpWidget(
+      buildTestApp(
+        authRepository: FakeAuthRepository(
+          restoreOutcome: const SessionAuthenticated(testUser),
+        ),
+      ),
+    );
+    await pumpUntilStable(tester);
+
+    expect(find.widgetWithText(FilledButton, 'Sign in'), findsNothing);
+    expect(find.text('Fitness overview'), findsOneWidget);
+  });
+
+  testWidgets('logout redirects to login', (tester) async {
+    await tester.pumpWidget(
+      buildTestApp(
+        authRepository: FakeAuthRepository(
+          restoreOutcome: const SessionAuthenticated(testUser),
+        ),
+      ),
+    );
+    await pumpUntilStable(tester);
+
+    await tester.tap(find.text('Log out'));
+    await pumpUntilStable(tester);
+
+    expect(find.widgetWithText(FilledButton, 'Sign in'), findsOneWidget);
+    expect(find.text('Fitness overview'), findsNothing);
+  });
+
+  testWidgets('dashboard does not show token', (tester) async {
+    await tester.pumpWidget(
+      buildTestApp(
+        authRepository: FakeAuthRepository(
+          restoreOutcome: const SessionAuthenticated(testUser),
+        ),
+      ),
+    );
+    await pumpUntilStable(tester);
+
+    expect(find.textContaining('demo-token'), findsNothing);
+    expect(find.textContaining('Bearer'), findsNothing);
   });
 }

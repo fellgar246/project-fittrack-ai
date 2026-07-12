@@ -29,7 +29,7 @@ experience.
 
 ```text
 Block 5.1 — Flutter Mobile App Foundation (completed)
-Block 5.2 — Flutter API Client + Auth
+Block 5.2 — Flutter API Client + Auth (completed)
 Block 5.3 — Mobile Dashboard
 Block 5.4 — Measurements Flow
 Block 5.5 — Nutrition Logs Flow
@@ -83,6 +83,49 @@ Validated on macOS desktop (iOS Simulator and Android Emulator available via `fl
 - Secure storage
 - Feature flows
 
+## Block 5.2 — Completed
+
+### HTTP and storage
+
+- `dio` 5.4.3+1 — centralized client, timeouts, auth interceptor, error mapping
+- `flutter_secure_storage` 9.2.4 — JWT persistence with key `fittrack_access_token`
+
+### Auth strategy
+
+- Register → auto-login → `/auth/me` (backend register returns user only)
+- Session restore via stored token + `/auth/me`
+- Network errors during restore preserve token and show bootstrap retry
+- 401 on `/auth/me` clears token
+- No refresh token (backend HS256, 60-minute expiry)
+
+### Navigation guards
+
+- Bootstrap during restore / recoverable failure
+- Protected `/dashboard`; public `/login` and `/register`
+- Authenticated users skip auth screens
+
+### Testing
+
+- 56 unit and widget tests, no live network in CI tests
+- Fakes: `FakeAuthApi`, `FakeAuthRepository`, `InMemoryTokenStorage`
+
+### Smoke test platform
+
+- Cloud API validated via curl against dev Container Apps URL
+- macOS desktop available for `flutter run` (no iOS/Android simulator connected in dev env)
+
+### Backend contracts confirmed
+
+- `POST /auth/register` — `{email, name, password, goal}` → user, 201
+- `POST /auth/login` — `{email, password}` → `{access_token, token_type}`, 200
+- `GET /auth/me` — Bearer → user, 200
+
+### Risks remaining
+
+- JWT expiry requires re-login after ~60 minutes (no refresh endpoint)
+- iOS bundle ID differs from documented application ID on Apple targets
+- Local HTTP on Android/iOS may need platform-specific cleartext/ATS config (not required for cloud HTTPS)
+
 ## MVP mobile scope
 
 The first mobile MVP should include:
@@ -108,5 +151,5 @@ The first mobile MVP should include:
 ## Next block
 
 ```text
-Block 5.2 — Flutter API Client + Auth
+Block 5.3 — Mobile Dashboard
 ```

@@ -1,18 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
-import '../../../app/router/app_routes.dart';
-import '../../../core/config/app_config.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../auth/presentation/auth_controller.dart';
+import '../../auth/presentation/auth_state.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 
-class BootstrapScreen extends ConsumerWidget {
+class BootstrapScreen extends ConsumerStatefulWidget {
   const BootstrapScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(appConfigProvider);
+  ConsumerState<BootstrapScreen> createState() => _BootstrapScreenState();
+}
+
+class _BootstrapScreenState extends ConsumerState<BootstrapScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Future<void>.microtask(() {
+      ref.read(authControllerProvider.notifier).restoreSession();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final authState = ref.watch(authControllerProvider);
     final theme = Theme.of(context);
 
     return AppScaffold(
@@ -21,75 +33,54 @@ class BootstrapScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Backend & cloud ready',
+            'FitTrack AI',
             style: theme.textTheme.headlineMedium,
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            'Flutter mobile foundation',
-            style: theme.textTheme.titleMedium,
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          _InfoRow(
-            label: 'Environment',
-            value: config.environment.displayName,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          const _InfoRow(
-            label: 'API',
-            value: 'configured',
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            config.apiBaseUrl.toString(),
+            _statusMessage(authState),
             style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: AppSpacing.xl),
-          Text(
-            'This screen validates app startup, environment configuration, theme, '
-            'and navigation. Feature flows arrive in later blocks.',
-            style: theme.textTheme.bodyMedium,
-          ),
-          const Spacer(),
-          FilledButton(
-            onPressed: () => context.go(AppRoutes.login),
-            child: const Text('Open login'),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          OutlinedButton(
-            onPressed: () => context.go(AppRoutes.dashboard),
-            child: const Text('Open dashboard'),
-          ),
+          if (_isLoading(authState))
+            const Center(child: CircularProgressIndicator())
+          else if (authState.status == AuthStatus.failure) ...[
+            Text(
+              authState.errorMessage ??
+                  'Unable to restore your session. Check your connection.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.error,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            FilledButton(
+              onPressed: () {
+                ref.read(authControllerProvider.notifier).restoreSession();
+              },
+              child: const Text('Retry'),
+            ),
+          ],
         ],
       ),
     );
   }
-}
 
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({
-    required this.label,
-    required this.value,
-  });
+  bool _isLoading(AuthState authState) {
+    return authState.status == AuthStatus.initial ||
+        authState.status == AuthStatus.loading;
+  }
 
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Row(
-      children: [
-        Text(
-          '$label: ',
-          style: theme.textTheme.labelLarge,
-        ),
-        Text(
-          value,
-          style: theme.textTheme.bodyLarge,
-        ),
-      ],
-    );
+  String _statusMessage(AuthState authState) {
+    switch (authState.status) {
+      case AuthStatus.initial:
+      case AuthStatus.loading:
+        return 'Restoring your session...';
+      case AuthStatus.failure:
+        return 'Session restore failed';
+      case AuthStatus.authenticated:
+        return 'Session restored';
+      case AuthStatus.unauthenticated:
+        return 'Redirecting to sign in...';
+    }
   }
 }

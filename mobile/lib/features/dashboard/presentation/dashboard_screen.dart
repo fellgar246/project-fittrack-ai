@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/placeholder_feature_card.dart';
+import '../../auth/presentation/auth_controller.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
   static const _features = [
@@ -31,11 +33,21 @@ class DashboardScreen extends StatelessWidget {
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authControllerProvider);
+    final user = authState.user;
     final theme = Theme.of(context);
 
     return AppScaffold(
       title: 'Dashboard',
+      actions: [
+        TextButton(
+          onPressed: () {
+            ref.read(authControllerProvider.notifier).logout();
+          },
+          child: const Text('Log out'),
+        ),
+      ],
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -44,10 +56,21 @@ class DashboardScreen extends StatelessWidget {
             style: theme.textTheme.headlineMedium,
           ),
           const SizedBox(height: AppSpacing.sm),
-          Text(
-            'Placeholder dashboard for upcoming mobile features.',
-            style: theme.textTheme.bodyMedium,
-          ),
+          if (user != null) ...[
+            Text(
+              'Signed in as ${user.email}',
+              style: theme.textTheme.bodyLarge,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              '${user.name} · ${user.goal}',
+              style: theme.textTheme.bodyMedium,
+            ),
+          ] else
+            Text(
+              'Authenticated session active.',
+              style: theme.textTheme.bodyMedium,
+            ),
           const SizedBox(height: AppSpacing.lg),
           Expanded(
             child: ListView.separated(
