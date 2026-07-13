@@ -84,7 +84,7 @@ Client → Azure Container Apps (FastAPI)
 |------|-----------|--------|
 | Health | `GET /health` | HTTP 200 |
 | Auth | register, login, `GET /auth/me` | 201 / 200 / 200 |
-| Measurements | CRUD + progress | 201 / 200 |
+| Measurements | list, create, progress | 201 / 200 |
 | Nutrition | logs + summary | 201 / 200 |
 | Workouts | plans, logs, summaries | 201 / 200 |
 | Weekly | `GET /weekly-summary` | 200 (AI-ready) |
@@ -116,7 +116,7 @@ Full smoke test runbook: [docs/cloud-api-smoke-test.md](docs/cloud-api-smoke-tes
 ## Known limitations
 
 - Flutter mobile foundation established in `mobile/` (Block 5.1)
-- Mobile auth and the fitness dashboard are implemented; feature CRUD flows remain placeholders
+- Mobile auth, dashboard, and measurements flow are implemented; nutrition and workouts remain placeholders
 - Azure OpenAI responses can take ~20–30s (no streaming/timeout tuning yet)
 - PostgreSQL uses public endpoint with narrow ACA egress firewall (dev/portfolio compromise)
 - No private networking, CI/CD pipeline, custom domain, or load testing
@@ -135,6 +135,7 @@ Full smoke test runbook: [docs/cloud-api-smoke-test.md](docs/cloud-api-smoke-tes
 | [docs/mobile-flutter-transition.md](docs/mobile-flutter-transition.md) | Flutter mobile transition notes |
 | [docs/flutter-auth.md](docs/flutter-auth.md) | Flutter authentication architecture (Block 5.2) |
 | [docs/flutter-dashboard.md](docs/flutter-dashboard.md) | Flutter dashboard architecture (Block 5.3) |
+| [docs/flutter-measurements.md](docs/flutter-measurements.md) | Flutter measurements architecture (Block 5.4) |
 | [docs/teardown.md](docs/teardown.md) | Cost control and teardown guide |
 | [backend/README.md](backend/README.md) | API reference, local dev, migrations |
 | [infra/terraform/azure/README.md](infra/terraform/azure/README.md) | Terraform blocks journal (4.1–4.24) |
@@ -194,9 +195,26 @@ See [mobile/README.md](mobile/README.md) for platform-specific local API command
 [docs/flutter-dashboard.md](docs/flutter-dashboard.md) for dashboard contracts and loading
 strategy.
 
+## Flutter measurements flow
+
+The Flutter client now supports authenticated body measurement tracking against the FitTrack AI
+cloud API. Users can review their measurement history, add new measurements, inspect a progress
+summary and refresh the dashboard after recording new data.
+
+```bash
+cd mobile
+flutter pub get
+flutter run \
+  --dart-define=APP_ENV=development \
+  --dart-define=API_BASE_URL=https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io
+```
+
+See [docs/flutter-measurements.md](docs/flutter-measurements.md) for endpoint contracts, units,
+loading strategy, and limitations.
+
 ## Next steps
 
-1. **Block 5.4 — Measurements Flow** — list, create, and summarize body measurements
+1. **Block 5.5 — Flutter Nutrition Logs Flow** — list, create, and summarize nutrition logs
 2. **Private Networking Plan** (deferred) — VNet, private PostgreSQL, NAT Gateway
 3. **Azure Blob Storage** (deferred) — progress photos
 4. **Observability polish** (deferred) — Application Insights dashboards and alerts

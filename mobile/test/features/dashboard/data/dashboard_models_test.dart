@@ -1,4 +1,4 @@
-import 'package:fittrack_ai/features/dashboard/data/models/measurement_progress.dart';
+import 'package:fittrack_ai/features/measurements/data/models/measurement_progress.dart';
 import 'package:fittrack_ai/features/dashboard/data/models/recommendation_summary.dart';
 import 'package:fittrack_ai/features/dashboard/data/models/weekly_summary.dart';
 import 'package:flutter_test/flutter_test.dart';

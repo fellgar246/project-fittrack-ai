@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../auth/data/models/authenticated_user.dart';
-import '../../data/models/measurement_progress.dart';
+import '../../../measurements/data/models/measurement_progress.dart';
 import '../../data/models/recommendation_summary.dart';
 import '../../data/models/weekly_summary.dart';
 

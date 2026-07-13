@@ -1,4 +1,4 @@
-import 'measurement_progress.dart';
+import '../../../measurements/data/models/measurement_progress.dart';
 import 'recommendation_summary.dart';
 import 'weekly_summary.dart';
 

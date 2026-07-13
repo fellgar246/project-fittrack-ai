@@ -2,13 +2,15 @@ import 'dart:async';
 
 import 'package:fittrack_ai/features/auth/data/auth_repository.dart';
 import 'package:fittrack_ai/features/dashboard/data/models/dashboard_data.dart';
-import 'package:fittrack_ai/features/dashboard/data/models/measurement_progress.dart';
+import 'package:fittrack_ai/features/measurements/data/models/measurement_progress.dart';
 import 'package:fittrack_ai/features/dashboard/data/models/weekly_summary.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../../helpers/fake_auth_repository.dart';
 import '../../../helpers/fake_dashboard.dart';
+import '../../../helpers/fake_measurements.dart';
+import '../../../helpers/measurements_navigation.dart';
 import '../../../helpers/test_app.dart';
 
 void main() {
@@ -100,23 +102,41 @@ void main() {
     expect(dashboard.loadCalls, 2);
   });
 
-  testWidgets('quick action opens an honest placeholder', (tester) async {
+  testWidgets('quick action opens measurements screen', (tester) async {
     await tester.pumpWidget(_authenticatedApp(FakeDashboardRepository()));
     await pumpUntilStable(tester);
 
     await _scrollTo(tester, find.text('Quick actions'));
-    final measurements = find.text('Measurements').last;
-    await _scrollTo(tester, measurements);
-    await tester.drag(
-      find.byKey(const Key('dashboard-scroll-view')),
-      const Offset(0, -150),
+    await openMeasurementsFromDashboard(tester);
+
+    expect(find.text('Progress summary'), findsOneWidget);
+    expect(find.text('70.2 kg'), findsWidgets);
+  });
+
+  testWidgets('dashboard refreshes after measurement created', (tester) async {
+    final dashboard = FakeDashboardRepository();
+    final measurements = FakeMeasurementsRepository();
+
+    await tester.pumpWidget(
+      buildTestApp(
+        authRepository: FakeAuthRepository(
+          restoreOutcome: const SessionAuthenticated(testUser),
+        ),
+        dashboardRepository: dashboard,
+        measurementsRepository: measurements,
+      ),
     );
-    await tester.pump();
-    await tester.tap(measurements);
+    await pumpUntilStable(tester);
+    await openCreateMeasurementFromDashboard(tester);
+
+    await tester.enterText(find.byType(TextFormField).at(0), '70');
+    await tester.tap(find.widgetWithText(FilledButton, 'Save measurement'));
     await pumpUntilStable(tester);
 
-    expect(find.text('Measurements flow'), findsOneWidget);
-    expect(find.textContaining('Block 5.4'), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await pumpUntilStable(tester);
+
+    expect(dashboard.loadCalls, 2);
   });
 }
 

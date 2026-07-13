@@ -3,6 +3,7 @@ import 'package:fittrack_ai/core/errors/api_exception.dart';
 import 'package:fittrack_ai/core/network/api_client.dart';
 import 'package:fittrack_ai/core/network/api_endpoints.dart';
 import 'package:fittrack_ai/features/dashboard/data/dashboard_api.dart';
+import 'package:fittrack_ai/features/measurements/data/measurements_api.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -11,7 +12,7 @@ void main() {
 
   setUp(() {
     client = _FakeApiClient();
-    api = DashboardApi(client);
+    api = DashboardApi(client, MeasurementsApi(client));
   });
 
   test('parses weekly summary and sends week_start', () async {
@@ -30,33 +31,12 @@ void main() {
     expect(await api.getLatestRecommendation(), isNull);
   });
 
-  test('401 is propagated', () async {
-    client.errors[ApiEndpoints.measurementProgress] =
-        const UnauthorizedException();
-
-    expect(
-      api.getMeasurementProgress(),
-      throwsA(isA<UnauthorizedException>()),
-    );
-  });
-
   test('500 is propagated', () async {
     client.errors[ApiEndpoints.weeklySummary] = const ServerException();
 
     expect(
       api.getWeeklySummary(DateTime(2026, 7, 6)),
       throwsA(isA<ServerException>()),
-    );
-  });
-
-  test('invalid payload throws format exception', () async {
-    client.responses[ApiEndpoints.measurementProgress] = {
-      'measurements_count': 'none',
-    };
-
-    expect(
-      api.getMeasurementProgress(),
-      throwsA(isA<FormatException>()),
     );
   });
 }

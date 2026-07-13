@@ -1,14 +1,15 @@
 import '../../../core/errors/api_exception.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
-import 'models/measurement_progress.dart';
+import '../../measurements/data/measurements_api.dart';
 import 'models/recommendation_summary.dart';
 import 'models/weekly_summary.dart';
 
 class DashboardApi {
-  DashboardApi(this._client);
+  DashboardApi(this._client, this._measurementsApi);
 
   final ApiClient _client;
+  final MeasurementsApi _measurementsApi;
 
   Future<WeeklySummary> getWeeklySummary(DateTime weekStart) async {
     final response = await _client.get<Map<String, dynamic>>(
@@ -20,17 +21,6 @@ class DashboardApi {
       throw const FormatException('Empty weekly summary response.');
     }
     return WeeklySummary.fromJson(data);
-  }
-
-  Future<MeasurementProgress> getMeasurementProgress() async {
-    final response = await _client.get<Map<String, dynamic>>(
-      ApiEndpoints.measurementProgress,
-    );
-    final data = response.data;
-    if (data == null) {
-      throw const FormatException('Empty measurement progress response.');
-    }
-    return MeasurementProgress.fromJson(data);
   }
 
   Future<RecommendationSummary?> getLatestRecommendation() async {
@@ -47,6 +37,8 @@ class DashboardApi {
       return null;
     }
   }
+
+  MeasurementsApi get measurementsApi => _measurementsApi;
 }
 
 String _dateOnly(DateTime date) {

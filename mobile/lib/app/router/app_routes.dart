@@ -4,6 +4,7 @@ abstract final class AppRoutes {
   static const register = '/register';
   static const dashboard = '/dashboard';
   static const measurements = '/measurements';
+  static const newMeasurement = '/measurements/new';
   static const nutrition = '/nutrition';
   static const workouts = '/workouts';
   static const weeklySummary = '/weekly-summary';
@@ -14,6 +15,7 @@ abstract final class AppRoutes {
   static const registerName = 'register';
   static const dashboardName = 'dashboard';
   static const measurementsName = 'measurements';
+  static const newMeasurementName = 'newMeasurement';
   static const nutritionName = 'nutrition';
   static const workoutsName = 'workouts';
   static const weeklySummaryName = 'weekly-summary';

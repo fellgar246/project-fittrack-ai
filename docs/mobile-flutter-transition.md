@@ -30,8 +30,8 @@ experience.
 ```text
 Block 5.1 — Flutter Mobile App Foundation (completed)
 Block 5.2 — Flutter API Client + Auth (completed)
-Block 5.3 — Mobile Dashboard (implementation complete; interactive smoke pending)
-Block 5.4 — Measurements Flow
+Block 5.3 — Mobile Dashboard (completed)
+Block 5.4 — Measurements Flow (completed)
 Block 5.5 — Nutrition Logs Flow
 Block 5.6 — Workout Flow
 Block 5.7 — Weekly Summary + AI Recommendation
@@ -191,8 +191,47 @@ The first mobile MVP should include:
 - App Store / Play Store release
 - Full production hardening
 
+## Block 5.4 — Completed
+
+### Measurements endpoints
+
+- `GET /measurements` — authenticated list, newest first, optional inclusive `date_from` /
+  `date_to`
+- `POST /measurements` — create with `date`, `weight`, optional `waist`, `body_fat_estimate`,
+  `notes`; `409` on duplicate user/date
+- `GET /measurements/progress` — backend-owned summary and deltas; controlled empty response
+
+### Models and architecture
+
+- `Measurement`, `CreateMeasurementRequest`, `MeasurementProgress`, and `MeasurementsData`
+- `MeasurementsScreen → MeasurementsController → MeasurementsRepository → MeasurementsApi`
+- `MeasurementProgress` moved to the measurements feature and reused by the dashboard
+- Dashboard refresh after create uses navigation result + `DashboardController.refresh()`
+
+### Loading and errors
+
+- List and progress load in parallel
+- List failure is global; progress failure is localized with retry
+- Pull-to-refresh preserves stale data on temporary failure
+- `401` reuses the existing auth logout path
+
+### Units
+
+- Mobile UI displays `weight` as kg, `waist` as cm, and `body_fat_estimate` as %
+- Units are a product convention; the API does not encode them in OpenAPI
+
+### Smoke test platform
+
+- Automated tests and static analysis run on macOS (137 tests)
+- Cloud OpenAPI and measurement contracts verified against the deployed Azure API
+- Interactive app smoke uses a disposable `example.com` account via register/login in the app
+
+### Limitations
+
+- No edit/delete, charts, photos, offline cache, or date-range filters in the UI
+
 ## Next block
 
 ```text
-Block 5.4 — Measurements Flow
+Block 5.5 — Flutter Nutrition Logs Flow
 ```

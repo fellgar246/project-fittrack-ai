@@ -7,6 +7,8 @@ import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
 import '../../features/bootstrap/presentation/bootstrap_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
+import '../../features/measurements/presentation/create_measurement_screen.dart';
+import '../../features/measurements/presentation/measurements_screen.dart';
 import '../../shared/widgets/feature_placeholder_screen.dart';
 import 'app_routes.dart';
 import 'auth_router_refresh.dart';
@@ -68,10 +70,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.measurements,
         name: AppRoutes.measurementsName,
-        builder: (context, state) => const FeaturePlaceholderScreen(
-          title: 'Measurements',
-          nextBlock: 'Block 5.4',
-        ),
+        builder: (context, state) => const MeasurementsScreen(),
+        routes: [
+          GoRoute(
+            path: 'new',
+            name: AppRoutes.newMeasurementName,
+            builder: (context, state) => const CreateMeasurementScreen(),
+          ),
+        ],
       ),
       GoRoute(
         path: AppRoutes.nutrition,

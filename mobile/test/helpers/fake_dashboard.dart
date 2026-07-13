@@ -1,11 +1,14 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
+import 'package:fittrack_ai/core/network/api_client.dart';
 import 'package:fittrack_ai/features/dashboard/data/dashboard_api.dart';
 import 'package:fittrack_ai/features/dashboard/data/dashboard_repository.dart';
 import 'package:fittrack_ai/features/dashboard/data/models/dashboard_data.dart';
-import 'package:fittrack_ai/features/dashboard/data/models/measurement_progress.dart';
 import 'package:fittrack_ai/features/dashboard/data/models/recommendation_summary.dart';
 import 'package:fittrack_ai/features/dashboard/data/models/weekly_summary.dart';
+import 'package:fittrack_ai/features/measurements/data/measurements_api.dart';
+import 'package:fittrack_ai/features/measurements/data/models/measurement_progress.dart';
 
 final testWeeklySummary = WeeklySummary(
   weekStart: DateTime(2026, 7, 6),
@@ -45,53 +48,94 @@ final testDashboardData = DashboardData(
   recommendation: testRecommendation,
 );
 
-class FakeDashboardApi implements DashboardApi {
+class FakeDashboardApi extends DashboardApi {
+  FakeDashboardApi._(this.fakeMeasurements, this._coordinator)
+      : super(_UnusedApiClient(), fakeMeasurements);
+
+  factory FakeDashboardApi() {
+    final coordinator = RequestCoordinator();
+    final measurements = FakeMeasurementsApiForDashboard(coordinator);
+    return FakeDashboardApi._(measurements, coordinator);
+  }
+
+  final FakeMeasurementsApiForDashboard fakeMeasurements;
+  final RequestCoordinator _coordinator;
+
   WeeklySummary weeklySummary = testWeeklySummary;
-  MeasurementProgress measurement = testMeasurement;
   RecommendationSummary? recommendation = testRecommendation;
   Object? weeklyError;
-  Object? measurementError;
   Object? recommendationError;
-  Completer<void>? requestGate;
-  var activeRequests = 0;
-  var maxActiveRequests = 0;
+
+  Completer<void>? get requestGate => _coordinator.gate;
+  set requestGate(Completer<void>? value) => _coordinator.gate = value;
+
+  int get maxActiveRequests => _coordinator.maxActive;
+
+  Object? get measurementError => fakeMeasurements.progressError;
+  set measurementError(Object? value) => fakeMeasurements.progressError = value;
+
+  MeasurementProgress get measurement => fakeMeasurements.progress;
+  set measurement(MeasurementProgress value) =>
+      fakeMeasurements.progress = value;
 
   @override
-  Future<WeeklySummary> getWeeklySummary(DateTime weekStart) async {
-    return _run(() {
+  Future<WeeklySummary> getWeeklySummary(DateTime weekStart) {
+    return _coordinator.run(() {
       if (weeklyError != null) throw weeklyError!;
       return weeklySummary;
     });
   }
 
   @override
-  Future<MeasurementProgress> getMeasurementProgress() async {
-    return _run(() {
-      if (measurementError != null) throw measurementError!;
-      return measurement;
-    });
-  }
-
-  @override
-  Future<RecommendationSummary?> getLatestRecommendation() async {
-    return _run(() {
+  Future<RecommendationSummary?> getLatestRecommendation() {
+    return _coordinator.run(() {
       if (recommendationError != null) throw recommendationError!;
       return recommendation;
     });
   }
+}
 
-  Future<T> _run<T>(T Function() result) async {
-    activeRequests++;
-    if (activeRequests > maxActiveRequests) {
-      maxActiveRequests = activeRequests;
+class FakeMeasurementsApiForDashboard extends MeasurementsApi {
+  FakeMeasurementsApiForDashboard(this._coordinator) : super(_UnusedApiClient());
+
+  final RequestCoordinator _coordinator;
+
+  MeasurementProgress progress = testMeasurement;
+  Object? progressError;
+
+  @override
+  Future<MeasurementProgress> getProgress({
+    DateTime? dateFrom,
+    DateTime? dateTo,
+  }) {
+    return _coordinator.run(() {
+      if (progressError != null) throw progressError!;
+      return progress;
+    });
+  }
+}
+
+class RequestCoordinator {
+  Completer<void>? gate;
+  var active = 0;
+  var maxActive = 0;
+
+  Future<T> run<T>(T Function() action) async {
+    active++;
+    if (active > maxActive) {
+      maxActive = active;
     }
-    await requestGate?.future;
+    await gate?.future;
     try {
-      return result();
+      return action();
     } finally {
-      activeRequests--;
+      active--;
     }
   }
+}
+
+class _UnusedApiClient extends ApiClient {
+  _UnusedApiClient() : super(Dio());
 }
 
 class FakeDashboardRepository implements DashboardRepository {

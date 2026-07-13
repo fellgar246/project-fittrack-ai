@@ -1,7 +1,8 @@
 import '../../../core/errors/api_exception.dart';
+import '../../measurements/data/measurements_api.dart';
+import '../../measurements/data/models/measurement_progress.dart';
 import 'dashboard_api.dart';
 import 'models/dashboard_data.dart';
-import 'models/measurement_progress.dart';
 import 'models/recommendation_summary.dart';
 import 'models/weekly_summary.dart';
 
@@ -21,13 +22,15 @@ class DashboardRepositoryImpl implements DashboardRepository {
   final DashboardApi _api;
   final DateTime Function() _now;
 
+  MeasurementsApi get _measurementsApi => _api.measurementsApi;
+
   @override
   Future<DashboardData> loadDashboard() async {
     final weekStart = _startOfWeek(_now());
 
     final results = await Future.wait<_Outcome<Object?>>([
       _capture<WeeklySummary>(_api.getWeeklySummary(weekStart)),
-      _capture<MeasurementProgress>(_api.getMeasurementProgress()),
+      _capture<MeasurementProgress>(_measurementsApi.getProgress()),
       _capture<RecommendationSummary?>(_api.getLatestRecommendation()),
     ]);
 
@@ -58,7 +61,7 @@ class DashboardRepositoryImpl implements DashboardRepository {
 
   @override
   Future<MeasurementProgress> loadMeasurement() {
-    return _api.getMeasurementProgress();
+    return _measurementsApi.getProgress();
   }
 
   @override

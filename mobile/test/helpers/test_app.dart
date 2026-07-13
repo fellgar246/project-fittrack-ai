@@ -7,12 +7,15 @@ import 'package:fittrack_ai/features/auth/presentation/auth_controller.dart';
 import 'package:fittrack_ai/features/auth/presentation/auth_state.dart';
 import 'package:fittrack_ai/features/dashboard/data/dashboard_providers.dart';
 import 'package:fittrack_ai/features/dashboard/data/dashboard_repository.dart';
+import 'package:fittrack_ai/features/measurements/data/measurements_providers.dart';
+import 'package:fittrack_ai/features/measurements/data/measurements_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fake_auth_repository.dart';
 import 'fake_dashboard.dart';
+import 'fake_measurements.dart';
 
 final testConfig = AppConfig(
   environment: AppEnvironment.development,
@@ -22,16 +25,19 @@ final testConfig = AppConfig(
 Widget buildTestApp({
   AuthRepository? authRepository,
   DashboardRepository? dashboardRepository,
+  MeasurementsRepository? measurementsRepository,
   AuthState? initialAuthState,
 }) {
   final repository = authRepository ?? FakeAuthRepository();
   final dashboard = dashboardRepository ?? FakeDashboardRepository();
+  final measurements = measurementsRepository ?? FakeMeasurementsRepository();
 
   return ProviderScope(
     overrides: [
       appConfigProvider.overrideWithValue(testConfig),
       authRepositoryProvider.overrideWithValue(repository),
       dashboardRepositoryProvider.overrideWithValue(dashboard),
+      measurementsRepositoryProvider.overrideWithValue(measurements),
       if (initialAuthState != null)
         authControllerProvider.overrideWith(
           (ref) => PresetAuthController(repository, initialAuthState),

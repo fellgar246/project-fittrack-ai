@@ -7,6 +7,7 @@ abstract final class ApiEndpoints {
   static const login = '/auth/login';
   static const me = '/auth/me';
   static const weeklySummary = '/weekly-summary';
+  static const measurements = '/measurements';
   static const measurementProgress = '/measurements/progress';
   static const latestRecommendation = '/recommendations/latest';
 }
