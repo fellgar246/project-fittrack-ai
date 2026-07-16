@@ -21,5 +21,15 @@ class Settings(BaseSettings):
     azure_openai_timeout_seconds: int = 20
     azure_openai_max_retries: int = 2
 
+    # Progress photo storage settings. The fake provider is deterministic and
+    # requires no credentials, so local development and tests never depend on Azure.
+    progress_photo_storage_provider: str = "fake"
+    azure_storage_account_name: str = ""
+    azure_storage_container_name: str = "progress-photos"
+    azure_client_id: str = ""
+    progress_photo_max_bytes: int = 5 * 1024 * 1024
+    progress_photo_upload_ttl_seconds: int = 300
+    progress_photo_read_ttl_seconds: int = 300
+
 
 settings = Settings()

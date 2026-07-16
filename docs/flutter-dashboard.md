@@ -60,9 +60,7 @@ response and does not download the complete measurements list. It never calls
 
 ## Limitations
 
-- Feature routes for weekly summary and recommendations remain placeholders; measurements,
-  nutrition, and workouts are implemented in Blocks 5.4–5.6.
+- Feature routes for weekly summary and recommendations are implemented in Block 5.7 as one integrated screen; measurements, nutrition, and workouts remain in Blocks 5.4–5.6.
 - No charts, photos, offline cache, or local database.
-- Recommendation generation is not initiated from the dashboard.
-- The backend does not expose the AI provider in `RecommendationRead`, so the UI labels content
-  only as AI-powered and does not claim a provider from response data.
+- Recommendation generation is user-initiated from the weekly summary screen when the backend reports readiness.
+- The backend does not expose the AI provider in `RecommendationRead`; the weekly screen labels persisted guidance as Azure OpenAI because that is the confirmed cloud runtime (`AI_PROVIDER=azure`).

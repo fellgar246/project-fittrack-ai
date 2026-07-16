@@ -35,8 +35,8 @@ Block 5.4 — Measurements Flow (completed)
 Block 5.5 — Nutrition Logs Flow (completed)
 Block 5.6 — Workout Flow (completed)
 Block 5.7 — Weekly Summary + AI Recommendation
-Block 5.8 — Progress Photos + Azure Blob Storage
-Block 5.9 — Observability Polish
+Block 5.8 — Progress Photos Storage Foundation (backend)
+Block 5.9 — Flutter Progress Photos UI
 Block 5.10 — Final Portfolio Release
 ```
 
@@ -310,8 +310,69 @@ The first mobile MVP should include:
 - No plan create/edit/delete, set-by-set tracking, timer, charts, or offline cache
 - One exercise per submit (not atomic multi-exercise sessions)
 
+## Block 5.7 — Flutter Weekly Summary + AI Recommendation — completed
+
+### Scope
+
+- Integrated `/weekly-summary` and `/recommendations` screen
+- Canonical weekly summary and recommendation models in `features/weekly_summary`
+- `GET /weekly-summary`, `GET /recommendations/latest`, `POST /recommendations/weekly`
+- Backend readiness/missing data rendering only
+- Generation controller with duplicate-submit guard and 60s receive timeout
+- Dashboard sync after successful generation
+
+### Endpoints
+
+| Operation | Path |
+| --- | --- |
+| Weekly summary | `GET /weekly-summary?week_start=YYYY-MM-DD` |
+| Latest recommendation | `GET /recommendations/latest` |
+| Generate recommendation | `POST /recommendations/weekly` |
+
+### Tests
+
+- 289 automated tests; `flutter analyze` clean (one informational `prefer_const_constructors` lint)
+- Cloud OpenAPI verified against deployed Azure API during planning
+
+### Limitations
+
+- No recommendation history, streaming, chat, offline cache, or automatic generation
+- No direct Azure OpenAI access from Flutter
+
+## Block 5.8 — Progress Photos Storage Foundation — completed
+
+Backend, PostgreSQL, Terraform, and Azure Blob Storage foundation for progress photos. No Flutter functional changes in this block.
+
+### Delivered
+
+- Direct upload architecture with user-delegation SAS (not backend proxy)
+- API endpoints: upload request, confirm, list, per-photo access
+- `progress_photos` table and Alembic migration
+- `FakeProgressPhotoStorage` for deterministic tests
+- Private storage account + container via Terraform module
+- Managed Identity RBAC (`Storage Blob Delegator` + `Storage Blob Data Contributor`)
+
+### API contract for Block 5.9
+
+| Operation | Path |
+| --- | --- |
+| Create upload authorization | `POST /progress-photos/upload-requests` |
+| Confirm upload | `POST /progress-photos/{photo_id}/confirm` |
+| List metadata | `GET /progress-photos` |
+| Read access URL | `POST /progress-photos/{photo_id}/access` |
+
+See [docs/progress-photos-architecture.md](progress-photos-architecture.md).
+
+### Block 5.7 interactive smoke
+
+Still pending separately (not part of Block 5.8):
+
+- user not ready / user ready
+- real Azure OpenAI generation
+- persistence, latest recommendation, dashboard sync
+
 ## Next block
 
 ```text
-Block 5.7 — Flutter Weekly Summary + AI Recommendation
+Block 5.9 — Flutter Progress Photos UI
 ```

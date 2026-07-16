@@ -12,6 +12,8 @@ import 'package:fittrack_ai/features/nutrition/data/nutrition_providers.dart';
 import 'package:fittrack_ai/features/measurements/data/measurements_repository.dart';
 import 'package:fittrack_ai/features/nutrition/data/nutrition_repository.dart';
 import 'package:fittrack_ai/features/workouts/data/workouts_providers.dart';
+import 'package:fittrack_ai/features/weekly_summary/data/weekly_summary_providers.dart';
+import 'package:fittrack_ai/features/weekly_summary/data/weekly_summary_repository.dart';
 import 'package:fittrack_ai/features/workouts/data/workouts_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,6 +23,7 @@ import 'fake_auth_repository.dart';
 import 'fake_dashboard.dart';
 import 'fake_measurements.dart';
 import 'fake_nutrition.dart';
+import 'fake_weekly_summary.dart';
 import 'fake_workouts.dart';
 
 final testConfig = AppConfig(
@@ -34,6 +37,7 @@ Widget buildTestApp({
   MeasurementsRepository? measurementsRepository,
   NutritionRepository? nutritionRepository,
   WorkoutsRepository? workoutsRepository,
+  WeeklySummaryRepository? weeklySummaryRepository,
   AuthState? initialAuthState,
 }) {
   final repository = authRepository ?? FakeAuthRepository();
@@ -41,6 +45,8 @@ Widget buildTestApp({
   final measurements = measurementsRepository ?? FakeMeasurementsRepository();
   final nutrition = nutritionRepository ?? FakeNutritionRepository();
   final workouts = workoutsRepository ?? FakeWorkoutsRepository();
+  final weeklySummary =
+      weeklySummaryRepository ?? FakeWeeklySummaryRepository();
 
   return ProviderScope(
     overrides: [
@@ -50,6 +56,7 @@ Widget buildTestApp({
       measurementsRepositoryProvider.overrideWithValue(measurements),
       nutritionRepositoryProvider.overrideWithValue(nutrition),
       workoutsRepositoryProvider.overrideWithValue(workouts),
+      weeklySummaryRepositoryProvider.overrideWithValue(weeklySummary),
       if (initialAuthState != null)
         authControllerProvider.overrideWith(
           (ref) => PresetAuthController(repository, initialAuthState),

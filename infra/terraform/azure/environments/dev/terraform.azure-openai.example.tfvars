@@ -75,3 +75,5 @@ api_azure_openai_endpoint    = ""
 api_azure_openai_api_key     = ""
 api_azure_openai_deployment  = ""
 api_azure_openai_api_version = ""
+
+create_blob_storage = false

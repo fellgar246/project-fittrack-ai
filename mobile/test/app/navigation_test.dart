@@ -4,8 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../helpers/fake_auth_repository.dart';
 import '../helpers/fake_nutrition.dart';
+import '../helpers/fake_weekly_summary.dart';
 import '../helpers/fake_workouts.dart';
 import '../helpers/nutrition_navigation.dart';
+import '../helpers/weekly_summary_navigation.dart';
 import '../helpers/workouts_navigation.dart';
 import '../helpers/test_app.dart';
 
@@ -112,5 +114,22 @@ void main() {
 
     expect(find.text('Workouts'), findsOneWidget);
     expect(find.text('Workout plans'), findsOneWidget);
+  });
+
+  testWidgets('authenticated user can open weekly summary route',
+      (tester) async {
+    await tester.pumpWidget(
+      buildTestApp(
+        authRepository: FakeAuthRepository(
+          restoreOutcome: const SessionAuthenticated(testUser),
+        ),
+        weeklySummaryRepository: FakeWeeklySummaryRepository(),
+      ),
+    );
+    await pumpUntilStable(tester);
+    await openWeeklySummaryFromDashboard(tester);
+
+    expect(find.text('Weekly summary'), findsOneWidget);
+    expect(find.text('Ready for recommendation'), findsOneWidget);
   });
 }

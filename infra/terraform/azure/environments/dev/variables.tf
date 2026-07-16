@@ -177,6 +177,58 @@ variable "create_networking" {
   default     = false
 }
 
+variable "create_blob_storage" {
+  type        = bool
+  description = "Whether to create Azure Blob Storage for progress photos. Requires create_resource_group=true and create_managed_identities=true."
+  default     = false
+
+  validation {
+    condition     = !var.create_blob_storage || var.create_resource_group
+    error_message = "create_blob_storage=true requires create_resource_group=true."
+  }
+
+  validation {
+    condition     = !var.create_blob_storage || var.create_managed_identities
+    error_message = "create_blob_storage=true requires create_managed_identities=true."
+  }
+}
+
+variable "blob_storage_account_tier" {
+  type        = string
+  description = "Storage account tier for progress photos."
+  default     = "Standard"
+}
+
+variable "blob_storage_replication_type" {
+  type        = string
+  description = "Storage replication type for progress photos."
+  default     = "LRS"
+}
+
+variable "blob_public_network_access_enabled" {
+  type        = bool
+  description = "Whether the progress photo storage account allows public network access."
+  default     = true
+}
+
+variable "progress_photo_max_bytes" {
+  type        = number
+  description = "Maximum allowed progress photo size in bytes."
+  default     = 5242880
+}
+
+variable "progress_photo_upload_ttl_seconds" {
+  type        = number
+  description = "Upload SAS TTL in seconds."
+  default     = 300
+}
+
+variable "progress_photo_read_ttl_seconds" {
+  type        = number
+  description = "Read SAS TTL in seconds."
+  default     = 300
+}
+
 variable "create_postgres" {
   type        = bool
   description = "Whether to create Azure Database for PostgreSQL Flexible Server."

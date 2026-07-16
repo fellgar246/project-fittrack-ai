@@ -3,10 +3,12 @@ import 'package:fittrack_ai/features/dashboard/data/models/recommendation_summar
 import 'package:fittrack_ai/features/dashboard/data/models/weekly_summary.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../../helpers/weekly_summary_fixtures.dart';
+
 void main() {
   group('dashboard DTOs', () {
     test('parses valid weekly summary', () {
-      final summary = WeeklySummary.fromJson(_weeklyJson);
+      final summary = WeeklySummary.fromJson(fullWeeklySummaryJson());
 
       expect(summary.workoutLogs, 2);
       expect(summary.nutritionDaysLogged, 4);
@@ -50,8 +52,14 @@ void main() {
     });
 
     test('rejects invalid weekly payload', () {
-      final invalid = Map<String, dynamic>.from(_weeklyJson)
-        ..['workouts'] = {'total_logs': 'two', 'workout_days': 2};
+      final invalid = Map<String, dynamic>.from(fullWeeklySummaryJson())
+        ..['workouts'] = {
+          'total_logs': 'two',
+          'total_sets': 1,
+          'total_reps': 1,
+          'unique_exercises': 1,
+          'workout_days': 1,
+        };
 
       expect(
         () => WeeklySummary.fromJson(invalid),
@@ -70,26 +78,3 @@ void main() {
     });
   });
 }
-
-final _weeklyJson = <String, dynamic>{
-  'period': {
-    'week_start': '2026-07-06',
-    'week_end': '2026-07-12',
-  },
-  'workouts': {
-    'total_logs': 2,
-    'workout_days': 2,
-  },
-  'nutrition': {
-    'days_logged': 4,
-  },
-  'measurements': {
-    'measurements_count': 1,
-    'end_date': '2026-07-10',
-    'end_weight': 68.5,
-  },
-  'data_quality': {
-    'is_ready_for_ai_recommendation': true,
-    'missing_data': <String>[],
-  },
-};

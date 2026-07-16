@@ -16,6 +16,8 @@ dependencies = [
     "pwdlib[argon2]>=0.2",
     "pyjwt>=2.9",
     "openai>=2.44.0",
+    "azure-identity>=1.25.3",
+    "azure-storage-blob>=12.30.0",
 ]
 
 [dependency-groups]

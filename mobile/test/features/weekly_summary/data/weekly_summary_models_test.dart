@@ -1,0 +1,83 @@
+import 'package:fittrack_ai/features/measurements/data/models/measurement_progress.dart';
+import 'package:fittrack_ai/features/weekly_summary/data/models/weekly_recommendation.dart';
+import 'package:fittrack_ai/features/weekly_summary/data/models/weekly_summary.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import '../../../helpers/weekly_summary_fixtures.dart';
+
+void main() {
+  group('weekly summary DTOs', () {
+    test('parses valid weekly summary', () {
+      final summary = WeeklySummary.fromJson(fullWeeklySummaryJson());
+
+      expect(summary.workoutLogs, 2);
+      expect(summary.workouts.totalSets, 16);
+      expect(summary.nutritionDaysLogged, 4);
+      expect(summary.nutrition.avgCalories, 2100);
+      expect(summary.measurements.endWeight, 68.5);
+      expect(summary.isReadyForRecommendation, isTrue);
+      expect(summary.dataQuality.hasWorkoutData, isTrue);
+    });
+
+    test('parses recommendation with optional safety notes', () {
+      final recommendation = WeeklyRecommendation.fromJson({
+        'id': 'recommendation-id',
+        'week_start': '2026-07-06',
+        'week_end': '2026-07-12',
+        'summary': 'On track',
+        'insights': ['Consistent nutrition'],
+        'recommendation': 'Prioritise recovery.',
+        'safety_notes': null,
+      });
+
+      expect(recommendation.recommendation, 'Prioritise recovery.');
+      expect(recommendation.safetyNotes, isNull);
+    });
+
+    test('rejects invalid weekly payload', () {
+      final invalid = Map<String, dynamic>.from(fullWeeklySummaryJson())
+        ..['workouts'] = {
+          'total_logs': 'two',
+          'total_sets': 1,
+          'total_reps': 1,
+          'unique_exercises': 1,
+          'workout_days': 1
+        };
+
+      expect(
+        () => WeeklySummary.fromJson(invalid),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('parses controlled empty measurement progress', () {
+      final progress = MeasurementProgress.fromJson({
+        'measurements_count': 0,
+        'start_date': null,
+        'end_date': null,
+        'start_weight': null,
+        'end_weight': null,
+        'weight_change': null,
+        'start_waist': null,
+        'end_waist': null,
+        'waist_change': null,
+        'start_body_fat_estimate': null,
+        'end_body_fat_estimate': null,
+        'body_fat_change': null,
+      });
+
+      expect(progress.isEmpty, isTrue);
+      expect(progress.endWeight, isNull);
+    });
+
+    test('buildTestWeeklySummary helper exposes readiness fields', () {
+      final summary = buildTestWeeklySummary(
+        isReadyForRecommendation: false,
+        missingData: const ['workout_logs'],
+      );
+
+      expect(summary.isReadyForRecommendation, isFalse);
+      expect(summary.missingData, ['workout_logs']);
+    });
+  });
+}

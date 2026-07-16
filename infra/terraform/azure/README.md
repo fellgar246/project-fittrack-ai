@@ -1636,8 +1636,11 @@ Continuar con **Block 5.1 — Flutter Mobile App Foundation**:
 Alternativas posteriores (deferred):
 
 - **Private Networking Plan** (VNet, Private DNS, acceso privado, NAT Gateway).
-- **Azure Blob Storage** (fotos de progreso).
 - **Observability polish** (Application Insights dashboards y alertas).
+
+Block 5.8 added `modules/blob_storage` (private Storage account + container + RBAC). Enable with
+`create_blob_storage = true` and cumulative tfvars; see
+[`docs/azure-blob-progress-photos.md`](../../../docs/azure-blob-progress-photos.md).
 
 Documentación checkpoint: [`docs/backend-cloud-checkpoint.md`](../../../docs/backend-cloud-checkpoint.md).
 

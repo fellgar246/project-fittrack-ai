@@ -317,8 +317,7 @@ class RecommendationCard extends StatelessWidget {
           icon: isReady ? Icons.auto_awesome : Icons.hourglass_empty,
           title: 'No weekly recommendation yet',
           message: isReady
-              ? 'Your weekly data is ready. Recommendation generation is '
-                  'available in a later flow.'
+              ? 'Your weekly data is ready. Generate your first recommendation.'
               : 'Add enough weekly data to become ready.',
           actionLabel: 'View recommendation',
           onAction: onOpen,

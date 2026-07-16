@@ -193,6 +193,31 @@ output "postgres_administrator_login" {
   value       = var.postgres_administrator_login
 }
 
+output "blob_storage_enabled" {
+  description = "Whether the blob storage module is enabled."
+  value       = var.create_blob_storage
+}
+
+output "blob_storage_account_name" {
+  description = "Progress photo storage account name when created, otherwise the planned name."
+  value       = coalesce(one(module.blob_storage[*].name), local.storage_account_name)
+}
+
+output "blob_storage_account_id" {
+  description = "Progress photo storage account ID when created. Null when disabled."
+  value       = one(module.blob_storage[*].id)
+}
+
+output "blob_storage_container_name" {
+  description = "Progress photo container name when created, otherwise the planned name."
+  value       = coalesce(one(module.blob_storage[*].container_name), local.progress_photos_container_name)
+}
+
+output "blob_storage_primary_blob_endpoint" {
+  description = "Primary blob endpoint when storage is created. Null when disabled."
+  value       = one(module.blob_storage[*].primary_blob_endpoint)
+}
+
 output "planned_modules" {
   description = "Planned Terraform modules for future Azure services, in dependency order."
   value = [
@@ -200,6 +225,7 @@ output "planned_modules" {
     "acr",
     "managed_identities",
     "key_vault",
+    "blob_storage",
     "networking",
     "postgres_flexible",
     "monitoring",

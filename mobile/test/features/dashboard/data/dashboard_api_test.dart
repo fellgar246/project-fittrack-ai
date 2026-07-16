@@ -4,7 +4,10 @@ import 'package:fittrack_ai/core/network/api_client.dart';
 import 'package:fittrack_ai/core/network/api_endpoints.dart';
 import 'package:fittrack_ai/features/dashboard/data/dashboard_api.dart';
 import 'package:fittrack_ai/features/measurements/data/measurements_api.dart';
+import 'package:fittrack_ai/features/weekly_summary/data/weekly_summary_api.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../../../helpers/weekly_summary_fixtures.dart';
 
 void main() {
   late _FakeApiClient client;
@@ -12,15 +15,15 @@ void main() {
 
   setUp(() {
     client = _FakeApiClient();
-    api = DashboardApi(client, MeasurementsApi(client));
+    api = DashboardApi(WeeklySummaryApi(client), MeasurementsApi(client));
   });
 
   test('parses weekly summary and sends week_start', () async {
-    client.responses[ApiEndpoints.weeklySummary] = _weeklyJson;
+    client.responses[ApiEndpoints.weeklySummary] = fullWeeklySummaryJson();
 
     final summary = await api.getWeeklySummary(DateTime(2026, 7, 6));
 
-    expect(summary.workoutLogs, 1);
+    expect(summary.workoutLogs, 2);
     expect(client.lastQuery?['week_start'], '2026-07-06');
   });
 
@@ -64,25 +67,3 @@ class _FakeApiClient extends ApiClient {
     );
   }
 }
-
-final _weeklyJson = <String, dynamic>{
-  'period': {
-    'week_start': '2026-07-06',
-    'week_end': '2026-07-12',
-  },
-  'workouts': {
-    'total_logs': 1,
-    'workout_days': 1,
-  },
-  'nutrition': {
-    'days_logged': 3,
-  },
-  'measurements': {
-    'measurements_count': 1,
-    'end_weight': 68.5,
-  },
-  'data_quality': {
-    'is_ready_for_ai_recommendation': true,
-    'missing_data': <String>[],
-  },
-};

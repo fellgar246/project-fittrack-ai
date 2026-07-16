@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:fittrack_ai/features/auth/data/auth_repository.dart';
 import 'package:fittrack_ai/features/dashboard/data/models/dashboard_data.dart';
 import 'package:fittrack_ai/features/measurements/data/models/measurement_progress.dart';
-import 'package:fittrack_ai/features/dashboard/data/models/weekly_summary.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -14,6 +13,7 @@ import '../../../helpers/fake_nutrition.dart';
 import '../../../helpers/fake_workouts.dart';
 import '../../../helpers/measurements_navigation.dart';
 import '../../../helpers/nutrition_navigation.dart';
+import '../../../helpers/weekly_summary_fixtures.dart';
 import '../../../helpers/workouts_navigation.dart';
 import '../../../helpers/test_app.dart';
 
@@ -46,14 +46,12 @@ void main() {
       (tester) async {
     final dashboard = FakeDashboardRepository()
       ..data = DashboardData(
-        weeklySummary: WeeklySummary(
-          weekStart: DateTime(2026, 7, 6),
-          weekEnd: DateTime(2026, 7, 12),
+        weeklySummary: buildTestWeeklySummary(
+          isReadyForRecommendation: false,
           workoutLogs: 0,
           workoutDays: 0,
           nutritionDaysLogged: 0,
           measurements: const MeasurementProgress(measurementsCount: 0),
-          isReadyForRecommendation: false,
           missingData: const [
             'workout_logs',
             'nutrition_logs',

@@ -7,6 +7,7 @@ import 'package:fittrack_ai/features/dashboard/presentation/dashboard_state.dart
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../../helpers/fake_dashboard.dart';
+import '../../../helpers/weekly_summary_fixtures.dart';
 
 void main() {
   late FakeDashboardRepository repository;

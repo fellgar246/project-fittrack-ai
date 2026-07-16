@@ -136,7 +136,8 @@ No new dependencies were added in Block 5.6.
 - App foundation
 - Theme (light/dark)
 - Navigation (`/`, `/login`, `/register`, `/dashboard`, `/measurements`, `/measurements/new`,
-  `/nutrition`, `/nutrition/new`, `/workouts`, `/workouts/plans/:planId`, `/workouts/logs/new`)
+  `/nutrition`, `/nutrition/new`, `/workouts`, `/workouts/plans/:planId`, `/workouts/logs/new`,
+  `/weekly-summary`, `/recommendations`)
 - Environment configuration via `--dart-define`
 - Real authentication flow against FastAPI
 - Bootstrap session restoration
@@ -145,20 +146,47 @@ No new dependencies were added in Block 5.6.
 - Functional measurements list/create/progress flow with dashboard sync
 - Functional nutrition list/create/summary flow with dashboard sync
 - Functional workouts list/plan-detail/exercise-log flow with dashboard sync
-- Unit and widget coverage for auth, dashboard, measurements, nutrition, and workouts layers
+- Functional weekly summary and AI recommendation flow with dashboard sync
+- Unit and widget coverage for auth, dashboard, measurements, nutrition, workouts, and weekly summary layers
+
+## Weekly summary and AI recommendation
+
+- Backend-owned readiness via `data_quality.is_ready_for_ai_recommendation`
+- Missing data rendered from `missing_data` without client-side rules
+- Latest recommendation with valid `404` empty state
+- `POST /recommendations/weekly` with 60s receive timeout for Azure OpenAI latency
+- Duplicate-submit guard and uncertain-timeout recovery via latest reload
+- Dashboard refresh after successful generation
+
+## Run
+
+```bash
+flutter run \
+  --dart-define=APP_ENV=development \
+  --dart-define=API_BASE_URL=https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io
+```
+
+## Validation
+
+```bash
+dart format --output=none --set-exit-if-changed .
+flutter analyze
+flutter test
+```
 
 ## Current limitations
 
 - No workout plan creation/editing from mobile
 - No nutrition or measurement edit/delete
 - No set-by-set tracking, timer, or charts
-- No offline cache
-- No recommendation generation from the dashboard
+- No recommendation history unless backend adds an endpoint
+- No streaming, chat, offline cache, or direct Azure OpenAI access
+- No automatic recommendation generation on screen open
 - No progress photos
 - Azure Blob Storage and mobile observability remain deferred
 
 ## Next block
 
 ```text
-Block 5.7 — Flutter Weekly Summary + AI Recommendation
+Block 5.8 — Flutter Progress Photos + Azure Blob Storage
 ```

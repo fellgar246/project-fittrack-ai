@@ -26,7 +26,7 @@ Azure Container Apps, connected to Azure PostgreSQL, configured with Key Vault-m
 and validated with Azure OpenAI for weekly fitness recommendations.
 
 The Flutter mobile foundation, authentication flow, functional cloud-backed dashboard,
-measurements flow, nutrition logs flow, and workout flow are implemented through Block 5.6. The FastAPI backend
+measurements flow, nutrition logs flow, workout flow, and weekly AI recommendation flow are implemented through Block 5.7. The FastAPI backend
 remains stable and unchanged during the mobile phase. This is not the final product release.
 
 ---
@@ -116,7 +116,7 @@ Full smoke test runbook: [docs/cloud-api-smoke-test.md](docs/cloud-api-smoke-tes
 ## Known limitations
 
 - Flutter mobile foundation established in `mobile/` (Block 5.1)
-- Mobile auth, dashboard, measurements, nutrition logs, and workouts are implemented
+- Mobile auth, dashboard, measurements, nutrition logs, workouts, and weekly AI recommendation are implemented
 - Azure OpenAI responses can take ~20–30s (no streaming/timeout tuning yet)
 - PostgreSQL uses public endpoint with narrow ACA egress firewall (dev/portfolio compromise)
 - No private networking, CI/CD pipeline, custom domain, or load testing
@@ -138,6 +138,7 @@ Full smoke test runbook: [docs/cloud-api-smoke-test.md](docs/cloud-api-smoke-tes
 | [docs/flutter-measurements.md](docs/flutter-measurements.md) | Flutter measurements architecture (Block 5.4) |
 | [docs/flutter-nutrition.md](docs/flutter-nutrition.md) | Flutter nutrition logs architecture (Block 5.5) |
 | [docs/flutter-workouts.md](docs/flutter-workouts.md) | Flutter workout flow architecture (Block 5.6) |
+| [docs/flutter-weekly-recommendation.md](docs/flutter-weekly-recommendation.md) | Flutter weekly summary + AI recommendation (Block 5.7) |
 | [docs/teardown.md](docs/teardown.md) | Cost control and teardown guide |
 | [backend/README.md](backend/README.md) | API reference, local dev, migrations |
 | [infra/terraform/azure/README.md](infra/terraform/azure/README.md) | Terraform blocks journal (4.1–4.24) |
@@ -248,10 +249,37 @@ flutter run \
 See [docs/flutter-workouts.md](docs/flutter-workouts.md) for endpoint contracts, exercise-level
 logging semantics, loading strategy, and limitations.
 
+## Flutter weekly summary and AI recommendation
+
+The Flutter client now closes the primary FitTrack AI product loop. Authenticated users can review
+their weekly readiness, identify missing fitness data, generate a persisted weekly recommendation
+through the FastAPI backend and Azure OpenAI, and view the result in both the dedicated weekly
+screen and dashboard.
+
+```bash
+cd mobile
+flutter pub get
+flutter run \
+  --dart-define=APP_ENV=development \
+  --dart-define=API_BASE_URL=https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io
+```
+
+See [docs/flutter-weekly-recommendation.md](docs/flutter-weekly-recommendation.md) for endpoint
+contracts, readiness rendering, generation lifecycle, timeout strategy, and limitations.
+
 ## Next steps
 
-1. **Block 5.7 — Flutter Weekly Summary + AI Recommendation** — dedicated weekly summary screen and
-   recommendation generation when backend indicates readiness
+1. **Block 5.9 — Flutter Progress Photos UI** — image picker, direct upload, confirm, and gallery on the Block 5.8 API
 2. **Private Networking Plan** (deferred) — VNet, private PostgreSQL, NAT Gateway
-3. **Azure Blob Storage** (deferred) — progress photos
-4. **Observability polish** (deferred) — Application Insights dashboards and alerts
+3. **Observability polish** (deferred) — Application Insights dashboards and alerts
+
+## Progress photos (Block 5.8)
+
+Backend foundation for secure progress photo storage is implemented:
+
+- Direct-to-Blob upload via user-delegation SAS
+- PostgreSQL metadata with ownership validation
+- Private Azure Blob container (Terraform)
+- Fake provider for local/tests
+
+See [docs/progress-photos-architecture.md](docs/progress-photos-architecture.md) and [docs/azure-blob-progress-photos.md](docs/azure-blob-progress-photos.md).

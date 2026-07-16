@@ -49,6 +49,7 @@ class DashboardScreen extends ConsumerWidget {
             onOpenMeasurements: () => _openMeasurements(context, controller),
             onOpenNutrition: () => _openNutrition(context, controller),
             onOpenWorkouts: () => _openWorkouts(context, controller),
+            onOpenWeeklySummary: () => _openWeeklySummary(context, controller),
           ),
       },
     );
@@ -85,6 +86,16 @@ Future<void> _openWorkouts(
   }
 }
 
+Future<void> _openWeeklySummary(
+  BuildContext context,
+  DashboardController controller,
+) async {
+  final changed = await context.push<bool>(AppRoutes.weeklySummary);
+  if (changed == true) {
+    await controller.refresh();
+  }
+}
+
 class _DashboardContent extends StatelessWidget {
   const _DashboardContent({
     required this.state,
@@ -96,6 +107,7 @@ class _DashboardContent extends StatelessWidget {
     required this.onOpenMeasurements,
     required this.onOpenNutrition,
     required this.onOpenWorkouts,
+    required this.onOpenWeeklySummary,
   });
 
   final DashboardState state;
@@ -107,6 +119,7 @@ class _DashboardContent extends StatelessWidget {
   final Future<void> Function() onOpenMeasurements;
   final Future<void> Function() onOpenNutrition;
   final Future<void> Function() onOpenWorkouts;
+  final Future<void> Function() onOpenWeeklySummary;
 
   @override
   Widget build(BuildContext context) {
@@ -141,7 +154,7 @@ class _DashboardContent extends StatelessWidget {
             errorMessage: data.recommendationError,
             isReady: data.weeklySummary.isReadyForRecommendation,
             onRetry: onRetryRecommendation,
-            onOpen: () => context.push(AppRoutes.recommendations),
+            onOpen: onOpenWeeklySummary,
           ),
           const SizedBox(height: AppSpacing.lg),
           QuickActionsGrid(
@@ -164,12 +177,12 @@ class _DashboardContent extends StatelessWidget {
               QuickAction(
                 label: 'Weekly summary',
                 icon: Icons.calendar_view_week_outlined,
-                onTap: () => context.push(AppRoutes.weeklySummary),
+                onTap: onOpenWeeklySummary,
               ),
               QuickAction(
                 label: 'Recommendation',
                 icon: Icons.auto_awesome,
-                onTap: () => context.push(AppRoutes.recommendations),
+                onTap: onOpenWeeklySummary,
               ),
             ],
           ),

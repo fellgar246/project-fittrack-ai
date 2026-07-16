@@ -14,7 +14,7 @@ import '../../features/nutrition/presentation/nutrition_screen.dart';
 import '../../features/workouts/presentation/create_workout_log_screen.dart';
 import '../../features/workouts/presentation/workout_plan_detail_screen.dart';
 import '../../features/workouts/presentation/workouts_screen.dart';
-import '../../shared/widgets/feature_placeholder_screen.dart';
+import '../../features/weekly_summary/presentation/weekly_summary_screen.dart';
 import 'app_routes.dart';
 import 'auth_router_refresh.dart';
 
@@ -121,18 +121,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.weeklySummary,
         name: AppRoutes.weeklySummaryName,
-        builder: (context, state) => const FeaturePlaceholderScreen(
-          title: 'Weekly summary',
-          nextBlock: 'Block 5.7',
-        ),
+        builder: (context, state) => const WeeklySummaryScreen(),
       ),
       GoRoute(
         path: AppRoutes.recommendations,
         name: AppRoutes.recommendationsName,
-        builder: (context, state) => const FeaturePlaceholderScreen(
-          title: 'Recommendation',
-          nextBlock: 'Block 5.7',
-        ),
+        builder: (context, state) => const WeeklySummaryScreen(),
       ),
     ],
   );

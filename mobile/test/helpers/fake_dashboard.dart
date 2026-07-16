@@ -5,21 +5,13 @@ import 'package:fittrack_ai/core/network/api_client.dart';
 import 'package:fittrack_ai/features/dashboard/data/dashboard_api.dart';
 import 'package:fittrack_ai/features/dashboard/data/dashboard_repository.dart';
 import 'package:fittrack_ai/features/dashboard/data/models/dashboard_data.dart';
-import 'package:fittrack_ai/features/dashboard/data/models/recommendation_summary.dart';
-import 'package:fittrack_ai/features/dashboard/data/models/weekly_summary.dart';
 import 'package:fittrack_ai/features/measurements/data/measurements_api.dart';
 import 'package:fittrack_ai/features/measurements/data/models/measurement_progress.dart';
+import 'package:fittrack_ai/features/weekly_summary/data/models/weekly_recommendation.dart';
+import 'package:fittrack_ai/features/weekly_summary/data/models/weekly_summary.dart';
+import 'package:fittrack_ai/features/weekly_summary/data/weekly_summary_api.dart';
 
-final testWeeklySummary = WeeklySummary(
-  weekStart: DateTime(2026, 7, 6),
-  weekEnd: DateTime(2026, 7, 12),
-  workoutLogs: 2,
-  workoutDays: 2,
-  nutritionDaysLogged: 4,
-  measurements: testMeasurement,
-  isReadyForRecommendation: true,
-  missingData: const [],
-);
+import 'weekly_summary_fixtures.dart';
 
 final testMeasurement = MeasurementProgress(
   measurementsCount: 2,
@@ -32,15 +24,7 @@ final testMeasurement = MeasurementProgress(
   endBodyFatEstimate: 23.5,
 );
 
-final testRecommendation = RecommendationSummary(
-  id: 'recommendation-id',
-  weekStart: DateTime(2026, 6, 29),
-  weekEnd: DateTime(2026, 7, 5),
-  summary: 'Recovery is on track.',
-  insights: const ['Training consistency improved.'],
-  recommendation: 'Maintain calories and prioritise recovery.',
-  safetyNotes: 'This does not replace medical advice.',
-);
+final testRecommendation = testWeeklyRecommendation;
 
 final testDashboardData = DashboardData(
   weeklySummary: testWeeklySummary,
@@ -49,22 +33,34 @@ final testDashboardData = DashboardData(
 );
 
 class FakeDashboardApi extends DashboardApi {
-  FakeDashboardApi._(this.fakeMeasurements, this._coordinator)
-      : super(_UnusedApiClient(), fakeMeasurements);
+  FakeDashboardApi._(
+      this.fakeWeeklyApi, this.fakeMeasurements, this._coordinator)
+      : super(fakeWeeklyApi, fakeMeasurements);
 
   factory FakeDashboardApi() {
     final coordinator = RequestCoordinator();
     final measurements = FakeMeasurementsApiForDashboard(coordinator);
-    return FakeDashboardApi._(measurements, coordinator);
+    final weeklyApi = FakeWeeklySummaryApiForDashboard(coordinator);
+    return FakeDashboardApi._(weeklyApi, measurements, coordinator);
   }
 
+  final FakeWeeklySummaryApiForDashboard fakeWeeklyApi;
   final FakeMeasurementsApiForDashboard fakeMeasurements;
   final RequestCoordinator _coordinator;
 
-  WeeklySummary weeklySummary = testWeeklySummary;
-  RecommendationSummary? recommendation = testRecommendation;
-  Object? weeklyError;
-  Object? recommendationError;
+  WeeklySummary get weeklySummary => fakeWeeklyApi.weeklySummary;
+  set weeklySummary(WeeklySummary value) => fakeWeeklyApi.weeklySummary = value;
+
+  RecommendationSummary? get recommendation =>
+      fakeWeeklyApi.latestRecommendation;
+  set recommendation(RecommendationSummary? value) =>
+      fakeWeeklyApi.latestRecommendation = value;
+
+  Object? get weeklyError => fakeWeeklyApi.weeklyError;
+  set weeklyError(Object? value) => fakeWeeklyApi.weeklyError = value;
+
+  Object? get recommendationError => fakeWeeklyApi.latestError;
+  set recommendationError(Object? value) => fakeWeeklyApi.latestError = value;
 
   Completer<void>? get requestGate => _coordinator.gate;
   set requestGate(Completer<void>? value) => _coordinator.gate = value;
@@ -77,6 +73,18 @@ class FakeDashboardApi extends DashboardApi {
   MeasurementProgress get measurement => fakeMeasurements.progress;
   set measurement(MeasurementProgress value) =>
       fakeMeasurements.progress = value;
+}
+
+class FakeWeeklySummaryApiForDashboard extends WeeklySummaryApi {
+  FakeWeeklySummaryApiForDashboard(this._coordinator)
+      : super(_UnusedApiClient());
+
+  final RequestCoordinator _coordinator;
+
+  WeeklySummary weeklySummary = testWeeklySummary;
+  RecommendationSummary? latestRecommendation = testWeeklyRecommendation;
+  Object? weeklyError;
+  Object? latestError;
 
   @override
   Future<WeeklySummary> getWeeklySummary(DateTime weekStart) {
@@ -89,8 +97,8 @@ class FakeDashboardApi extends DashboardApi {
   @override
   Future<RecommendationSummary?> getLatestRecommendation() {
     return _coordinator.run(() {
-      if (recommendationError != null) throw recommendationError!;
-      return recommendation;
+      if (latestError != null) throw latestError!;
+      return latestRecommendation;
     });
   }
 }

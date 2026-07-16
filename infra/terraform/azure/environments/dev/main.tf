@@ -126,6 +126,24 @@ module "key_vault" {
   tags                       = local.common_tags
 }
 
+# Block 5.8 — private blob storage for progress photos. Gated behind
+# create_blob_storage (default false); its validations guarantee
+# create_resource_group and create_managed_identities are also true.
+module "blob_storage" {
+  source = "../../modules/blob_storage"
+  count  = var.create_blob_storage ? 1 : 0
+
+  name                          = local.storage_account_name
+  resource_group_name           = module.resource_group[0].name
+  location                      = module.resource_group[0].location
+  container_name                = local.progress_photos_container_name
+  account_tier                  = var.blob_storage_account_tier
+  account_replication_type      = var.blob_storage_replication_type
+  public_network_access_enabled = var.blob_public_network_access_enabled
+  api_identity_principal_id     = module.managed_identities[0].principal_id
+  tags                          = local.common_tags
+}
+
 # Block 4.13 — AcrPull is granted via azurerm_role_assignment, but Azure AD/RBAC
 # propagation is eventually consistent: the role assignment API call can report
 # "complete" before the permission is actually usable for an image pull. The
@@ -154,6 +172,7 @@ module "container_apps" {
   depends_on = [
     time_sleep.wait_for_acr_pull_propagation,
     module.key_vault,
+    module.blob_storage,
   ]
 
   name                         = local.container_app_api_name
@@ -173,6 +192,15 @@ module "container_apps" {
     { AI_PROVIDER = var.api_ai_provider },
     var.api_ai_provider == "azure" && var.api_azure_openai_api_version != "" ? {
       AZURE_OPENAI_API_VERSION = var.api_azure_openai_api_version
+    } : {},
+    var.create_blob_storage ? {
+      PROGRESS_PHOTO_STORAGE_PROVIDER   = "azure"
+      AZURE_STORAGE_ACCOUNT_NAME        = module.blob_storage[0].name
+      AZURE_STORAGE_CONTAINER_NAME      = module.blob_storage[0].container_name
+      AZURE_CLIENT_ID                   = module.managed_identities[0].client_id
+      PROGRESS_PHOTO_MAX_BYTES          = tostring(var.progress_photo_max_bytes)
+      PROGRESS_PHOTO_UPLOAD_TTL_SECONDS = tostring(var.progress_photo_upload_ttl_seconds)
+      PROGRESS_PHOTO_READ_TTL_SECONDS   = tostring(var.progress_photo_read_ttl_seconds)
     } : {},
     var.create_key_vault ? {} : {
       JWT_SECRET_KEY = "dev-only-placeholder-change-before-prod"

@@ -1940,7 +1940,45 @@ logs cambian después).
       real a Azure en la suite.
 - [x] `uv run pytest` pasa (66 tests) y `uv run ruff check .` limpio.
 
+## Block 5.8 — Progress Photos Storage Foundation
+
+Backend-only foundation for secure progress photo metadata and Azure Blob Storage integration. Flutter upload/gallery UI is deferred to Block 5.9.
+
+### Endpoints
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/progress-photos/upload-requests` | Create pending metadata + upload SAS |
+| `POST` | `/progress-photos/{photo_id}/confirm` | Validate blob and activate metadata |
+| `GET` | `/progress-photos` | List active photos (metadata only) |
+| `POST` | `/progress-photos/{photo_id}/access` | Issue short-lived read URL |
+
+### Configuration
+
+```text
+PROGRESS_PHOTO_STORAGE_PROVIDER=fake|azure
+AZURE_STORAGE_ACCOUNT_NAME=
+AZURE_STORAGE_CONTAINER_NAME=progress-photos
+AZURE_CLIENT_ID=
+PROGRESS_PHOTO_MAX_BYTES=5242880
+PROGRESS_PHOTO_UPLOAD_TTL_SECONDS=300
+PROGRESS_PHOTO_READ_TTL_SECONDS=300
+```
+
+Local/tests default to `PROGRESS_PHOTO_STORAGE_PROVIDER=fake` (no Azure credentials).
+
+### Architecture docs
+
+- [`docs/progress-photos-architecture.md`](../docs/progress-photos-architecture.md)
+- [`docs/azure-blob-progress-photos.md`](../docs/azure-blob-progress-photos.md)
+
+### Local smoke
+
+```bash
+cd backend
+./scripts/smoke_progress_photos.sh
+```
+
 ## Siguiente paso recomendado
 
-**Block 5.1 — Flutter Mobile App Foundation**: crear el cliente mobile Flutter que consuma la
-API cloud validada. Ver [`docs/mobile-flutter-transition.md`](../docs/mobile-flutter-transition.md).
+**Block 5.9 — Flutter Progress Photos UI**: image picker, direct upload, confirm flow, and gallery on top of the Block 5.8 API contract. See [`docs/mobile-flutter-transition.md`](../docs/mobile-flutter-transition.md).

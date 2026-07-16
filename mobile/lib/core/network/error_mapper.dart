@@ -99,6 +99,12 @@ String? _extractDetailMessage(dynamic data) {
     if (detail is String) {
       return detail;
     }
+    if (detail is Map<String, dynamic>) {
+      final message = detail['message'];
+      if (message is String && message.isNotEmpty) {
+        return message;
+      }
+    }
     if (detail is List) {
       return _formatValidationDetail(detail);
     }
