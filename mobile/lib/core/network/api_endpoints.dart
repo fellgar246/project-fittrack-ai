@@ -9,5 +9,7 @@ abstract final class ApiEndpoints {
   static const weeklySummary = '/weekly-summary';
   static const measurements = '/measurements';
   static const measurementProgress = '/measurements/progress';
+  static const nutritionLogs = '/nutrition-logs';
+  static const nutritionSummary = '/nutrition-logs/summary';
   static const latestRecommendation = '/recommendations/latest';
 }

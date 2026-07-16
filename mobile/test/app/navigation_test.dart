@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../helpers/fake_auth_repository.dart';
+import '../helpers/fake_nutrition.dart';
+import '../helpers/nutrition_navigation.dart';
 import '../helpers/test_app.dart';
 
 void main() {
@@ -76,5 +78,21 @@ void main() {
 
     expect(find.textContaining('demo-token'), findsNothing);
     expect(find.textContaining('Bearer'), findsNothing);
+  });
+
+  testWidgets('authenticated user can open nutrition route', (tester) async {
+    await tester.pumpWidget(
+      buildTestApp(
+        authRepository: FakeAuthRepository(
+          restoreOutcome: const SessionAuthenticated(testUser),
+        ),
+        nutritionRepository: FakeNutritionRepository(),
+      ),
+    );
+    await pumpUntilStable(tester);
+    await openNutritionFromDashboard(tester);
+
+    expect(find.text('Nutrition'), findsOneWidget);
+    expect(find.text('Weekly nutrition summary'), findsOneWidget);
   });
 }

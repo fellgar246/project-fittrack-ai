@@ -47,7 +47,7 @@ response and does not download the complete measurements list. It never calls
 
 ## Empty states
 
-- No measurements: progress card links to the Block 5.4 placeholder.
+- No measurements: progress card links to the measurements flow.
 - No recommendation: the card explains whether weekly readiness is complete.
 - Incomplete readiness: missing categories come directly from backend `missing_data`.
 
@@ -60,7 +60,8 @@ response and does not download the complete measurements list. It never calls
 
 ## Limitations
 
-- Feature routes are honest placeholders; no measurement, nutrition, or workout CRUD is included.
+- Feature routes for workouts, weekly summary, and recommendations remain placeholders; measurements
+  and nutrition CRUD are implemented in Blocks 5.4 and 5.5.
 - No charts, photos, offline cache, or local database.
 - Recommendation generation is not initiated from the dashboard.
 - The backend does not expose the AI provider in `RecommendationRead`, so the UI labels content

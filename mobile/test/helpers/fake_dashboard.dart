@@ -96,7 +96,8 @@ class FakeDashboardApi extends DashboardApi {
 }
 
 class FakeMeasurementsApiForDashboard extends MeasurementsApi {
-  FakeMeasurementsApiForDashboard(this._coordinator) : super(_UnusedApiClient());
+  FakeMeasurementsApiForDashboard(this._coordinator)
+      : super(_UnusedApiClient());
 
   final RequestCoordinator _coordinator;
 

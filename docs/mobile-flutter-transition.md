@@ -32,7 +32,7 @@ Block 5.1 — Flutter Mobile App Foundation (completed)
 Block 5.2 — Flutter API Client + Auth (completed)
 Block 5.3 — Mobile Dashboard (completed)
 Block 5.4 — Measurements Flow (completed)
-Block 5.5 — Nutrition Logs Flow
+Block 5.5 — Nutrition Logs Flow (completed)
 Block 5.6 — Workout Flow
 Block 5.7 — Weekly Summary + AI Recommendation
 Block 5.8 — Progress Photos + Azure Blob Storage
@@ -230,8 +230,47 @@ The first mobile MVP should include:
 
 - No edit/delete, charts, photos, offline cache, or date-range filters in the UI
 
+## Block 5.5 — Completed
+
+### Nutrition endpoints
+
+- `GET /nutrition-logs` — authenticated list, newest first, optional inclusive `date_from` /
+  `date_to`; mobile uses a rolling 30-day `date_from` filter
+- `POST /nutrition-logs` — create with `date`, `calories`, `protein`, `carbs`, `fats`, optional
+  `notes`; `409` on duplicate user/date
+- `GET /nutrition-logs/summary` — backend-owned weekly aggregates; mobile scopes to current
+  Monday–Sunday
+
+### Models and architecture
+
+- `NutritionLog`, `CreateNutritionLogRequest`, `NutritionSummary`, and `NutritionData`
+- `NutritionScreen → NutritionController → NutritionRepository → NutritionApi`
+- Dashboard refresh after create uses navigation result + `DashboardController.refresh()`
+
+### Loading and errors
+
+- List and summary load in parallel
+- List failure is global; summary failure is localized with retry
+- Pull-to-refresh preserves stale data on temporary failure
+- `401` reuses the existing auth logout path
+
+### Units
+
+- Mobile UI displays `calories` as integer; `protein`, `carbs`, `fats` as grams (`g`)
+- Units follow backend documentation convention; the API does not encode them in OpenAPI
+
+### Smoke test platform
+
+- Automated tests and static analysis run on macOS (198 tests)
+- Cloud OpenAPI and nutrition contracts verified against the deployed Azure API
+- Interactive app smoke uses a disposable `example.com` account via register/login in the app
+
+### Limitations
+
+- No edit/delete, meal planning, food database, calorie targets, charts, or offline cache
+
 ## Next block
 
 ```text
-Block 5.5 — Flutter Nutrition Logs Flow
+Block 5.6 — Flutter Workout Flow
 ```

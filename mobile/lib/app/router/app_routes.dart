@@ -6,6 +6,7 @@ abstract final class AppRoutes {
   static const measurements = '/measurements';
   static const newMeasurement = '/measurements/new';
   static const nutrition = '/nutrition';
+  static const newNutritionLog = '/nutrition/new';
   static const workouts = '/workouts';
   static const weeklySummary = '/weekly-summary';
   static const recommendations = '/recommendations';
@@ -17,6 +18,7 @@ abstract final class AppRoutes {
   static const measurementsName = 'measurements';
   static const newMeasurementName = 'newMeasurement';
   static const nutritionName = 'nutrition';
+  static const newNutritionLogName = 'newNutritionLog';
   static const workoutsName = 'workouts';
   static const weeklySummaryName = 'weekly-summary';
   static const recommendationsName = 'recommendations';

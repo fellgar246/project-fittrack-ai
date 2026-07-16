@@ -4,9 +4,9 @@ Flutter mobile client for the FitTrack AI cloud-native fitness platform.
 
 ## Overview
 
-This folder contains the FitTrack AI mobile application. Blocks 5.2–5.4 provide real cloud
-authentication, a functional fitness dashboard, and an authenticated measurements flow backed by
-the existing API.
+This folder contains the FitTrack AI mobile application. Blocks 5.2–5.5 provide real cloud
+authentication, a functional fitness dashboard, authenticated measurements flow, and nutrition
+logging backed by the existing API.
 
 **Application ID:** `com.fittrackai.fittrack_ai`
 
@@ -51,6 +51,16 @@ flutter pub get
   `notes`, `date`)
 - Dashboard refresh after a successful create via navigation result + `DashboardController.refresh()`
 - Metric display convention: `kg`, `cm`, `%` (not encoded in the API contract)
+
+## Nutrition logs flow
+
+- Protected routes: `/nutrition` and `/nutrition/new`
+- List recent logs (last 30 days), weekly nutrition summary, empty/error/loading states,
+  pull-to-refresh, and retry
+- Create form with backend-aligned validation (`date`, `calories`, `protein`, `carbs`, `fats`,
+  optional `notes`)
+- Dashboard refresh after a successful create via navigation result + `DashboardController.refresh()`
+- Metric display convention: calories as integer; macros in grams (`g`)
 
 ## Run against cloud API
 
@@ -97,7 +107,7 @@ flutter test
 lib/
 ├── app/          # App shell, router, theme
 ├── core/         # Config, network, errors, storage, validation
-├── features/     # Auth, bootstrap, dashboard, measurements
+├── features/     # Auth, bootstrap, dashboard, measurements, nutrition
 └── shared/       # Reusable widgets
 ```
 
@@ -108,25 +118,27 @@ lib/
 - `dio` — HTTP client
 - `flutter_secure_storage` — secure JWT persistence
 
-No new dependencies were added in Block 5.4.
+No new dependencies were added in Block 5.5.
 
 ## Current scope
 
 - App foundation
 - Theme (light/dark)
-- Navigation (`/`, `/login`, `/register`, `/dashboard`, `/measurements`, `/measurements/new`)
+- Navigation (`/`, `/login`, `/register`, `/dashboard`, `/measurements`, `/measurements/new`,
+  `/nutrition`, `/nutrition/new`)
 - Environment configuration via `--dart-define`
 - Real authentication flow against FastAPI
 - Bootstrap session restoration
 - Login and register screens
 - Functional authenticated dashboard with logout and real API data
 - Functional measurements list/create/progress flow with dashboard sync
-- Unit and widget coverage for auth, dashboard, and measurements layers
+- Functional nutrition list/create/summary flow with dashboard sync
+- Unit and widget coverage for auth, dashboard, measurements, and nutrition layers
 
 ## Current limitations
 
-- Nutrition and workouts remain placeholders
-- No measurement edit/delete
+- Workouts remain a placeholder
+- No nutrition or measurement edit/delete
 - No charts or offline cache
 - No recommendation generation from the dashboard
 - No progress photos
@@ -135,5 +147,5 @@ No new dependencies were added in Block 5.4.
 ## Next block
 
 ```text
-Block 5.5 — Flutter Nutrition Logs Flow
+Block 5.6 — Flutter Workout Flow
 ```

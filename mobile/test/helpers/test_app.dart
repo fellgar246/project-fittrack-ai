@@ -8,7 +8,9 @@ import 'package:fittrack_ai/features/auth/presentation/auth_state.dart';
 import 'package:fittrack_ai/features/dashboard/data/dashboard_providers.dart';
 import 'package:fittrack_ai/features/dashboard/data/dashboard_repository.dart';
 import 'package:fittrack_ai/features/measurements/data/measurements_providers.dart';
+import 'package:fittrack_ai/features/nutrition/data/nutrition_providers.dart';
 import 'package:fittrack_ai/features/measurements/data/measurements_repository.dart';
+import 'package:fittrack_ai/features/nutrition/data/nutrition_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,6 +18,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'fake_auth_repository.dart';
 import 'fake_dashboard.dart';
 import 'fake_measurements.dart';
+import 'fake_nutrition.dart';
 
 final testConfig = AppConfig(
   environment: AppEnvironment.development,
@@ -26,11 +29,13 @@ Widget buildTestApp({
   AuthRepository? authRepository,
   DashboardRepository? dashboardRepository,
   MeasurementsRepository? measurementsRepository,
+  NutritionRepository? nutritionRepository,
   AuthState? initialAuthState,
 }) {
   final repository = authRepository ?? FakeAuthRepository();
   final dashboard = dashboardRepository ?? FakeDashboardRepository();
   final measurements = measurementsRepository ?? FakeMeasurementsRepository();
+  final nutrition = nutritionRepository ?? FakeNutritionRepository();
 
   return ProviderScope(
     overrides: [
@@ -38,6 +43,7 @@ Widget buildTestApp({
       authRepositoryProvider.overrideWithValue(repository),
       dashboardRepositoryProvider.overrideWithValue(dashboard),
       measurementsRepositoryProvider.overrideWithValue(measurements),
+      nutritionRepositoryProvider.overrideWithValue(nutrition),
       if (initialAuthState != null)
         authControllerProvider.overrideWith(
           (ref) => PresetAuthController(repository, initialAuthState),

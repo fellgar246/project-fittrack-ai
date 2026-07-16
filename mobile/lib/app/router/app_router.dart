@@ -9,6 +9,8 @@ import '../../features/bootstrap/presentation/bootstrap_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/measurements/presentation/create_measurement_screen.dart';
 import '../../features/measurements/presentation/measurements_screen.dart';
+import '../../features/nutrition/presentation/create_nutrition_log_screen.dart';
+import '../../features/nutrition/presentation/nutrition_screen.dart';
 import '../../shared/widgets/feature_placeholder_screen.dart';
 import 'app_routes.dart';
 import 'auth_router_refresh.dart';
@@ -82,10 +84,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.nutrition,
         name: AppRoutes.nutritionName,
-        builder: (context, state) => const FeaturePlaceholderScreen(
-          title: 'Nutrition',
-          nextBlock: 'Block 5.5',
-        ),
+        builder: (context, state) => const NutritionScreen(),
+        routes: [
+          GoRoute(
+            path: 'new',
+            name: AppRoutes.newNutritionLogName,
+            builder: (context, state) => const CreateNutritionLogScreen(),
+          ),
+        ],
       ),
       GoRoute(
         path: AppRoutes.workouts,

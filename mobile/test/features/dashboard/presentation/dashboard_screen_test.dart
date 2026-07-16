@@ -10,7 +10,9 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../../helpers/fake_auth_repository.dart';
 import '../../../helpers/fake_dashboard.dart';
 import '../../../helpers/fake_measurements.dart';
+import '../../../helpers/fake_nutrition.dart';
 import '../../../helpers/measurements_navigation.dart';
+import '../../../helpers/nutrition_navigation.dart';
 import '../../../helpers/test_app.dart';
 
 void main() {
@@ -131,6 +133,47 @@ void main() {
 
     await tester.enterText(find.byType(TextFormField).at(0), '70');
     await tester.tap(find.widgetWithText(FilledButton, 'Save measurement'));
+    await pumpUntilStable(tester);
+
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await pumpUntilStable(tester);
+
+    expect(dashboard.loadCalls, 2);
+  });
+
+  testWidgets('quick action opens nutrition screen', (tester) async {
+    await tester.pumpWidget(_authenticatedApp(FakeDashboardRepository()));
+    await pumpUntilStable(tester);
+
+    await _scrollTo(tester, find.text('Quick actions'));
+    await openNutritionFromDashboard(tester);
+
+    expect(find.text('Weekly nutrition summary'), findsOneWidget);
+    expect(find.text('1850'), findsWidgets);
+  });
+
+  testWidgets('dashboard refreshes after nutrition log created',
+      (tester) async {
+    final dashboard = FakeDashboardRepository();
+    final nutrition = FakeNutritionRepository();
+
+    await tester.pumpWidget(
+      buildTestApp(
+        authRepository: FakeAuthRepository(
+          restoreOutcome: const SessionAuthenticated(testUser),
+        ),
+        dashboardRepository: dashboard,
+        nutritionRepository: nutrition,
+      ),
+    );
+    await pumpUntilStable(tester);
+    await openCreateNutritionFromDashboard(tester);
+
+    await tester.enterText(find.byType(TextFormField).at(0), '2100');
+    await tester.enterText(find.byType(TextFormField).at(1), '130');
+    await tester.enterText(find.byType(TextFormField).at(2), '250');
+    await tester.enterText(find.byType(TextFormField).at(3), '65');
+    await tester.tap(find.widgetWithText(FilledButton, 'Save nutrition log'));
     await pumpUntilStable(tester);
 
     await tester.tap(find.byIcon(Icons.arrow_back));
