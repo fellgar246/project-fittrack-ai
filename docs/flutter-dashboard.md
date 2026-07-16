@@ -60,8 +60,8 @@ response and does not download the complete measurements list. It never calls
 
 ## Limitations
 
-- Feature routes for workouts, weekly summary, and recommendations remain placeholders; measurements
-  and nutrition CRUD are implemented in Blocks 5.4 and 5.5.
+- Feature routes for weekly summary and recommendations remain placeholders; measurements,
+  nutrition, and workouts are implemented in Blocks 5.4–5.6.
 - No charts, photos, offline cache, or local database.
 - Recommendation generation is not initiated from the dashboard.
 - The backend does not expose the AI provider in `RecommendationRead`, so the UI labels content

@@ -48,6 +48,7 @@ class DashboardScreen extends ConsumerWidget {
             onRetryRecommendation: controller.retryRecommendation,
             onOpenMeasurements: () => _openMeasurements(context, controller),
             onOpenNutrition: () => _openNutrition(context, controller),
+            onOpenWorkouts: () => _openWorkouts(context, controller),
           ),
       },
     );
@@ -74,6 +75,16 @@ Future<void> _openNutrition(
   }
 }
 
+Future<void> _openWorkouts(
+  BuildContext context,
+  DashboardController controller,
+) async {
+  final created = await context.push<bool>(AppRoutes.workouts);
+  if (created == true) {
+    await controller.refresh();
+  }
+}
+
 class _DashboardContent extends StatelessWidget {
   const _DashboardContent({
     required this.state,
@@ -84,6 +95,7 @@ class _DashboardContent extends StatelessWidget {
     required this.onRetryRecommendation,
     required this.onOpenMeasurements,
     required this.onOpenNutrition,
+    required this.onOpenWorkouts,
   });
 
   final DashboardState state;
@@ -94,6 +106,7 @@ class _DashboardContent extends StatelessWidget {
   final VoidCallback onRetryRecommendation;
   final Future<void> Function() onOpenMeasurements;
   final Future<void> Function() onOpenNutrition;
+  final Future<void> Function() onOpenWorkouts;
 
   @override
   Widget build(BuildContext context) {
@@ -146,7 +159,7 @@ class _DashboardContent extends StatelessWidget {
               QuickAction(
                 label: 'Workouts',
                 icon: Icons.fitness_center,
-                onTap: () => context.push(AppRoutes.workouts),
+                onTap: onOpenWorkouts,
               ),
               QuickAction(
                 label: 'Weekly summary',

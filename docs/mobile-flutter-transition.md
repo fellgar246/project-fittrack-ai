@@ -33,7 +33,7 @@ Block 5.2 — Flutter API Client + Auth (completed)
 Block 5.3 — Mobile Dashboard (completed)
 Block 5.4 — Measurements Flow (completed)
 Block 5.5 — Nutrition Logs Flow (completed)
-Block 5.6 — Workout Flow
+Block 5.6 — Workout Flow (completed)
 Block 5.7 — Weekly Summary + AI Recommendation
 Block 5.8 — Progress Photos + Azure Blob Storage
 Block 5.9 — Observability Polish
@@ -269,8 +269,49 @@ The first mobile MVP should include:
 
 - No edit/delete, meal planning, food database, calorie targets, charts, or offline cache
 
+## Block 5.6 — Completed
+
+### Workout endpoints
+
+- `GET /workout-plans` — authenticated plan summaries (`days_count`, `exercises_count`)
+- `GET /workout-plans/{plan_id}` — nested days and exercises with `target_sets` / `target_reps`
+- `GET /workout-logs` — authenticated list, newest first, optional inclusive `date_from` /
+  `date_to`; mobile uses a rolling 30-day `date_from` filter
+- `POST /workout-logs` — exercise-level create with `exercise_id`, `performed_at`, `sets`, `reps`,
+  optional `weight`, optional `notes`; `404` if exercise absent/foreign; no `409` conflicts
+
+### Models and architecture
+
+- `WorkoutPlan`, `WorkoutPlanDetail`, `WorkoutLog`, `CreateWorkoutLogRequest`, `WorkoutsData`
+- `WorkoutsScreen → WorkoutsController → WorkoutsRepository → WorkoutsApi`
+- Plan detail uses `WorkoutPlanDetailController` (family provider)
+- Create flow selects plan → day → exercise because logs require `exercise_id`
+- Dashboard refresh after create uses navigation result + `DashboardController.refresh()`
+
+### Loading and errors
+
+- Plans and logs load in parallel
+- Plans failure is global; logs failure is localized with retry
+- Pull-to-refresh preserves stale data on temporary failure
+- `401` reuses the existing auth logout path
+
+### Units
+
+- `weight` displayed as `kg`; `target_reps` shown verbatim (string in API)
+- `sets` and `reps` are positive integers
+
+### Tests
+
+- 258 automated tests; `flutter analyze` clean
+- Cloud OpenAPI verified against deployed Azure API
+
+### Limitations
+
+- No plan create/edit/delete, set-by-set tracking, timer, charts, or offline cache
+- One exercise per submit (not atomic multi-exercise sessions)
+
 ## Next block
 
 ```text
-Block 5.6 — Flutter Workout Flow
+Block 5.7 — Flutter Weekly Summary + AI Recommendation
 ```

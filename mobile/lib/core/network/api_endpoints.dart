@@ -11,5 +11,9 @@ abstract final class ApiEndpoints {
   static const measurementProgress = '/measurements/progress';
   static const nutritionLogs = '/nutrition-logs';
   static const nutritionSummary = '/nutrition-logs/summary';
+  static const workoutPlans = '/workout-plans';
+  static const workoutLogs = '/workout-logs';
   static const latestRecommendation = '/recommendations/latest';
+
+  static String workoutPlanById(String id) => '/workout-plans/$id';
 }

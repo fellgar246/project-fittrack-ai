@@ -11,6 +11,9 @@ import '../../features/measurements/presentation/create_measurement_screen.dart'
 import '../../features/measurements/presentation/measurements_screen.dart';
 import '../../features/nutrition/presentation/create_nutrition_log_screen.dart';
 import '../../features/nutrition/presentation/nutrition_screen.dart';
+import '../../features/workouts/presentation/create_workout_log_screen.dart';
+import '../../features/workouts/presentation/workout_plan_detail_screen.dart';
+import '../../features/workouts/presentation/workouts_screen.dart';
 import '../../shared/widgets/feature_placeholder_screen.dart';
 import 'app_routes.dart';
 import 'auth_router_refresh.dart';
@@ -96,10 +99,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.workouts,
         name: AppRoutes.workoutsName,
-        builder: (context, state) => const FeaturePlaceholderScreen(
-          title: 'Workouts',
-          nextBlock: 'Block 5.6',
-        ),
+        builder: (context, state) => const WorkoutsScreen(),
+        routes: [
+          GoRoute(
+            path: 'plans/:planId',
+            name: AppRoutes.workoutPlanDetailName,
+            builder: (context, state) => WorkoutPlanDetailScreen(
+              planId: state.pathParameters['planId']!,
+            ),
+          ),
+          GoRoute(
+            path: 'logs/new',
+            name: AppRoutes.newWorkoutLogName,
+            builder: (context, state) => CreateWorkoutLogScreen(
+              initialPlanId: state.uri.queryParameters['planId'],
+              initialExerciseId: state.uri.queryParameters['exerciseId'],
+            ),
+          ),
+        ],
       ),
       GoRoute(
         path: AppRoutes.weeklySummary,

@@ -8,6 +8,7 @@ abstract final class AppRoutes {
   static const nutrition = '/nutrition';
   static const newNutritionLog = '/nutrition/new';
   static const workouts = '/workouts';
+  static const newWorkoutLog = '/workouts/logs/new';
   static const weeklySummary = '/weekly-summary';
   static const recommendations = '/recommendations';
 
@@ -20,6 +21,10 @@ abstract final class AppRoutes {
   static const nutritionName = 'nutrition';
   static const newNutritionLogName = 'newNutritionLog';
   static const workoutsName = 'workouts';
+  static const workoutPlanDetailName = 'workoutPlanDetail';
+  static const newWorkoutLogName = 'newWorkoutLog';
   static const weeklySummaryName = 'weekly-summary';
   static const recommendationsName = 'recommendations';
+
+  static String workoutPlanDetail(String planId) => '/workouts/plans/$planId';
 }

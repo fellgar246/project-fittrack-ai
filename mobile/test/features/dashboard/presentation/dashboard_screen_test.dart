@@ -11,8 +11,10 @@ import '../../../helpers/fake_auth_repository.dart';
 import '../../../helpers/fake_dashboard.dart';
 import '../../../helpers/fake_measurements.dart';
 import '../../../helpers/fake_nutrition.dart';
+import '../../../helpers/fake_workouts.dart';
 import '../../../helpers/measurements_navigation.dart';
 import '../../../helpers/nutrition_navigation.dart';
+import '../../../helpers/workouts_navigation.dart';
 import '../../../helpers/test_app.dart';
 
 void main() {
@@ -174,6 +176,52 @@ void main() {
     await tester.enterText(find.byType(TextFormField).at(2), '250');
     await tester.enterText(find.byType(TextFormField).at(3), '65');
     await tester.tap(find.widgetWithText(FilledButton, 'Save nutrition log'));
+    await pumpUntilStable(tester);
+
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await pumpUntilStable(tester);
+
+    expect(dashboard.loadCalls, 2);
+  });
+
+  testWidgets('quick action opens workouts screen', (tester) async {
+    await tester.pumpWidget(
+      buildTestApp(
+        authRepository: FakeAuthRepository(
+          restoreOutcome: const SessionAuthenticated(testUser),
+        ),
+        dashboardRepository: FakeDashboardRepository(),
+        workoutsRepository: FakeWorkoutsRepository(),
+      ),
+    );
+    await pumpUntilStable(tester);
+
+    await _scrollTo(tester, find.text('Quick actions'));
+    await openWorkoutsFromDashboard(tester);
+
+    expect(find.text('Workout plans'), findsOneWidget);
+    expect(find.text('Strength Builder'), findsOneWidget);
+  });
+
+  testWidgets('dashboard refreshes after workout log created', (tester) async {
+    final dashboard = FakeDashboardRepository();
+    final workouts = FakeWorkoutsRepository();
+
+    await tester.pumpWidget(
+      buildTestApp(
+        authRepository: FakeAuthRepository(
+          restoreOutcome: const SessionAuthenticated(testUser),
+        ),
+        dashboardRepository: dashboard,
+        workoutsRepository: workouts,
+      ),
+    );
+    await pumpUntilStable(tester);
+    await openCreateWorkoutFromDashboard(tester);
+
+    await tester.enterText(find.byType(TextFormField).at(0), '3');
+    await tester.enterText(find.byType(TextFormField).at(1), '10');
+    await tester.tap(find.widgetWithText(FilledButton, 'Save workout log'));
     await pumpUntilStable(tester);
 
     await tester.tap(find.byIcon(Icons.arrow_back));

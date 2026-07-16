@@ -4,7 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../helpers/fake_auth_repository.dart';
 import '../helpers/fake_nutrition.dart';
+import '../helpers/fake_workouts.dart';
 import '../helpers/nutrition_navigation.dart';
+import '../helpers/workouts_navigation.dart';
 import '../helpers/test_app.dart';
 
 void main() {
@@ -94,5 +96,21 @@ void main() {
 
     expect(find.text('Nutrition'), findsOneWidget);
     expect(find.text('Weekly nutrition summary'), findsOneWidget);
+  });
+
+  testWidgets('authenticated user can open workouts route', (tester) async {
+    await tester.pumpWidget(
+      buildTestApp(
+        authRepository: FakeAuthRepository(
+          restoreOutcome: const SessionAuthenticated(testUser),
+        ),
+        workoutsRepository: FakeWorkoutsRepository(),
+      ),
+    );
+    await pumpUntilStable(tester);
+    await openWorkoutsFromDashboard(tester);
+
+    expect(find.text('Workouts'), findsOneWidget);
+    expect(find.text('Workout plans'), findsOneWidget);
   });
 }
