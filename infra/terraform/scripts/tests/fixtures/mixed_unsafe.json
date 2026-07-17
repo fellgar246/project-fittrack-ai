@@ -1,0 +1,22 @@
+{
+  "resource_changes": [
+    {
+      "address": "azurerm_resource_group.this",
+      "change": {
+        "actions": ["create"]
+      }
+    },
+    {
+      "address": "azurerm_key_vault_secret.openai_api_key",
+      "change": {
+        "actions": ["delete"]
+      }
+    },
+    {
+      "address": "azurerm_storage_account.this",
+      "change": {
+        "actions": ["delete", "create"]
+      }
+    }
+  ]
+}

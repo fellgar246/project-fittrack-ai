@@ -399,7 +399,7 @@ dependency constraints locally.
 - Backend **Ruff format** is not a blocking gate (legacy drift).
 - No code coverage thresholds.
 - No Docker image build or ACR push.
-- No Terraform fmt/validate/plan (Block 6.2).
+- No Terraform fmt/validate/plan in Block 6.1 (implemented in Block 6.2 — see [terraform-ci-security.md](terraform-ci-security.md))
 - No deployment or Azure integration tests in CI.
 - No Android/iOS/macOS build (Block 6.4 candidate).
 - No Python/Flutter version matrix.
@@ -413,18 +413,39 @@ This block is **quality gates only**, not release automation.
 
 ## 23. Next block
 
-**Block 6.2 — Terraform CI Plan and Security Checks**
+**Block 6.3 — Azure OIDC + Protected Backend Deployment**
 
 Planned scope:
 
-- `terraform fmt`, `init`, `validate`, safe `plan`
-- PR plan summary
-- IaC security checks
-- Azure OIDC only if required for read-only plan
-- No `terraform apply`
-- Secret scanning where appropriate
+- Azure OIDC federated identity for GitHub Actions
+- Remote Terraform state backend
+- Enable cloud-backed `terraform plan` with real inputs (never example-only OpenAI tfvars)
+- Protected `terraform apply`, ACR push, migrations, smoke tests
+- No long-lived Azure client secrets
 
-Do not start Block 6.2 until Block 6.1 workflows are green on GitHub.
+Terraform static CI (Block 6.2) is documented in [docs/terraform-ci-security.md](terraform-ci-security.md).
+
+---
+
+## Block 6.2 — Terraform CI (complete)
+
+Static Terraform validation and security checks are implemented in
+[`.github/workflows/terraform-ci.yml`](../.github/workflows/terraform-ci.yml).
+
+| Check | Status |
+|-------|--------|
+| **Terraform quality** | Implemented — fmt, validate, Trivy, Gitleaks, hygiene |
+| **Terraform plan safety** | Scaffolded — skipped until Block 6.3 |
+
+See [docs/terraform-ci-security.md](terraform-ci-security.md) for full details.
+
+---
+
+## 24. Previous block reference (Block 6.1)
+
+**Block 6.1 — Backend and Flutter Quality Gates** — see [docs/github-actions-quality-gates.md](github-actions-quality-gates.md).
+
+Do not start Block 6.3 until Block 6.2 workflows are green on GitHub.
 
 ---
 

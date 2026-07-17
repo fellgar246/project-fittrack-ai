@@ -14,14 +14,31 @@
 ### Safe plan (dev)
 
 ```bash
-cd infra/terraform/azure/environments/dev
+cd infra/terraform/azure
 terraform fmt -check -recursive
+
+cd environments/dev
+terraform init -backend=false
 terraform validate
 terraform plan \
   -var-file="terraform.azure-openai.example.tfvars" \
   -var-file="terraform.azure-openai.local.tfvars" \
   -var-file="terraform.blob-storage.example.tfvars"
 ```
+
+### CI quality gate (Block 6.2)
+
+Pull requests touching `infra/terraform/**` run the **Terraform quality** check via
+[`.github/workflows/terraform-ci.yml`](../../../.github/workflows/terraform-ci.yml):
+
+- `terraform fmt -check -recursive` (from `infra/terraform/azure/`)
+- `terraform init -backend=false` + `terraform validate` (in `environments/dev/`)
+- Trivy config scan (CRITICAL/HIGH blocking)
+- Gitleaks secret scan
+- Prohibited file hygiene check (no tracked state, local tfvars, or plan files)
+
+Cloud-backed `terraform plan` is scaffolded but **skipped** until Block 6.3 (Azure OIDC + remote state).
+Full documentation: [docs/terraform-ci-security.md](../../../docs/terraform-ci-security.md).
 
 - `terraform.azure-openai.local.tfvars` is **local and gitignored** — never commit it.
 - **Never apply using only example tfvars** when local Azure OpenAI values are required.

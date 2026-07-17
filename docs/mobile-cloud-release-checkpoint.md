@@ -644,7 +644,7 @@ No exact monthly figures are documented here; consult Azure Cost Management for 
 
 ### Operations
 
-- CI quality gates for backend and Flutter (Block 6.1); no full release/deploy pipeline
+- CI quality gates for backend, Flutter (Block 6.1), and Terraform static validation (Block 6.2); no full release/deploy pipeline
 - No production environment or custom domain
 - No alerting or formal SLO/SLA
 
@@ -656,7 +656,7 @@ No exact monthly figures are documented here; consult Azure Cost Management for 
 
 - Refresh token / rotation
 - Progress-photo orphan cleanup job
-- Terraform CI plan and security checks (Block 6.2)
+- Terraform cloud-backed plan (Block 6.3 — OIDC + remote state)
 - Production-grade observability (Application Insights)
 - Dedicated staging/production environments
 
@@ -857,19 +857,21 @@ Alternative: `mobile-cloud-checkpoint`
 | Mobile features (5.1–5.9) | Complete |
 | Cloud validation (5.10) | Complete |
 | Portfolio documentation (5.11) | Complete |
-| CI quality gates — backend + Flutter (6.1) | Complete (GitHub run pending first push) |
+| CI quality gates — backend + Flutter (6.1) | Complete |
+| CI quality gates — Terraform static (6.2) | Complete (GitHub run pending commit/push) |
+| CI cloud-backed Terraform plan (6.3) | Pending |
 | Production readiness | Not claimed |
 
 ---
 
 ## Recommended next phase
 
-**Block 6.2 — Terraform CI Plan and Security Checks**
+**Block 6.3 — Azure OIDC + Protected Backend Deployment**
 
-Backend and Flutter quality gates are implemented in Block 6.1
-([docs/github-actions-quality-gates.md](github-actions-quality-gates.md)). The next step is
-Terraform fmt/validate/safe plan, IaC security checks, and optional secret scanning — still no
-`terraform apply` or deployment.
+Terraform static CI and security checks are implemented in Block 6.2
+([docs/terraform-ci-security.md](terraform-ci-security.md)). The next step is Azure OIDC,
+remote Terraform state, cloud-backed safe plan, and protected apply — still no unreviewed
+deployment.
 
 Observability (Application Insights) remains a parallel high-value track. Alternatives deferred:
 production hardening, new product milestone, or portfolio-only maintenance.

@@ -1,0 +1,7 @@
+{
+  "resource_changes": [
+    {
+      "address": "azurerm_resource_group.this"
+    }
+  ]
+}

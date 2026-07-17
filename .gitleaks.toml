@@ -1,0 +1,27 @@
+title = "FitTrack AI Gitleaks"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documented false positives and example placeholders"
+paths = [
+  '''backend/README.md''',
+  '''backend/app/tests/test_progress_photos.py''',
+  '''infra/terraform/azure/environments/dev/terraform.azure-openai.example.tfvars''',
+  '''infra/terraform/azure/environments/dev/terraform.tfvars.example''',
+  '''infra/terraform/azure/environments/dev/terraform.acr.example.tfvars''',
+  '''infra/terraform/azure/environments/dev/terraform.blob-storage.example.tfvars''',
+  '''infra/terraform/azure/environments/dev/terraform.container-app.example.tfvars''',
+  '''infra/terraform/azure/environments/dev/terraform.container-apps-env.example.tfvars''',
+  '''infra/terraform/azure/environments/dev/terraform.key-vault.example.tfvars''',
+  '''infra/terraform/azure/environments/dev/terraform.postgres.example.tfvars''',
+  '''infra/terraform/azure/environments/dev/terraform.resource-group.example.tfvars''',
+]
+regexes = [
+  '''ci-only-not-a-real-secret''',
+  '''dev-only-placeholder-change-before-prod''',
+  '''placeholder:placeholder@placeholder''',
+  '''token-invalido''',
+  '''YWJjZGVmZ2hpams=''',
+]

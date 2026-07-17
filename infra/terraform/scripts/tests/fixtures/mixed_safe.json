@@ -1,0 +1,16 @@
+{
+  "resource_changes": [
+    {
+      "address": "azurerm_resource_group.this",
+      "change": {
+        "actions": ["create"]
+      }
+    },
+    {
+      "address": "azurerm_container_app.this",
+      "change": {
+        "actions": ["update"]
+      }
+    }
+  ]
+}

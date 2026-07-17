@@ -1,0 +1,220 @@
+name: Terraform CI
+
+on:
+  pull_request:
+    paths:
+      - 'infra/terraform/**'
+      - '.github/workflows/terraform-ci.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'infra/terraform/**'
+      - '.github/workflows/terraform-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TF_IN_AUTOMATION: true
+  TF_INPUT: false
+  TERRAFORM_VERSION: 1.10.5
+  TERRAFORM_ROOT: infra/terraform/azure
+  TERRAFORM_ENV: infra/terraform/azure/environments/dev
+
+jobs:
+  terraform-quality:
+    name: Terraform quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Terraform fmt check
+        working-directory: ${{ env.TERRAFORM_ROOT }}
+        run: terraform fmt -check -recursive
+
+      - name: Terraform file hygiene check
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          prohibited="$(
+            git ls-files \
+              | grep -E '(^|/)\.terraform/|\.tfstate(\.|$)|\.tfplan$|\.tfvars$' \
+              | grep -Ev '\.example\.tfvars$|\.tfvars\.example$' \
+              || true
+          )"
+
+          if [[ -n "${prohibited}" ]]; then
+            echo "Prohibited Terraform files are tracked in git:"
+            echo "${prohibited}"
+            exit 1
+          fi
+
+          echo "Terraform file hygiene check passed."
+
+      - name: Gitleaks secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+
+      - name: Terraform init (no backend)
+        working-directory: ${{ env.TERRAFORM_ENV }}
+        run: terraform init -backend=false -input=false
+
+      - name: Terraform validate
+        working-directory: ${{ env.TERRAFORM_ENV }}
+        run: terraform validate -no-color
+
+      - name: Trivy IaC config scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: config
+          scan-ref: ${{ env.TERRAFORM_ROOT }}
+          severity: CRITICAL,HIGH
+          trivyignores: .trivyignore
+          trivy-args: --tf-vars ${{ env.TERRAFORM_ENV }}/terraform.azure-openai.example.tfvars
+          exit-code: 1
+          hide-progress: true
+
+      - name: Plan safety unit tests
+        run: python3 -m unittest discover -s infra/terraform/scripts/tests -p 'test_*.py' -v
+
+  terraform-plan:
+    name: Terraform plan safety
+    needs: terraform-quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    if: >-
+      vars.TERRAFORM_CLOUD_PLAN_ENABLED == 'true' &&
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.fork == false) &&
+      secrets.AZURE_CLIENT_ID != ''
+
+    permissions:
+      contents: read
+      id-token: write
+
+    defaults:
+      run:
+        working-directory: ${{ env.TERRAFORM_ENV }}
+
+    env:
+      ARM_USE_OIDC: true
+      ARM_USE_AZUREAD: true
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Terraform init (remote backend)
+        run: |
+          terraform init -input=false \
+            -backend-config="resource_group_name=${{ vars.TF_BACKEND_RESOURCE_GROUP_NAME }}" \
+            -backend-config="storage_account_name=${{ vars.TF_BACKEND_STORAGE_ACCOUNT_NAME }}" \
+            -backend-config="container_name=${{ vars.TF_BACKEND_CONTAINER_NAME }}" \
+            -backend-config="key=${{ vars.TF_BACKEND_STATE_KEY }}"
+
+      - name: Terraform plan
+        id: plan
+        shell: bash
+        env:
+          TF_VAR_owner: ${{ vars.TF_VAR_owner }}
+          TF_VAR_unique_suffix: ${{ vars.TF_VAR_unique_suffix }}
+          TF_VAR_api_ai_provider: ${{ secrets.TF_VAR_api_ai_provider }}
+          TF_VAR_api_azure_openai_endpoint: ${{ secrets.TF_VAR_api_azure_openai_endpoint }}
+          TF_VAR_api_azure_openai_api_key: ${{ secrets.TF_VAR_api_azure_openai_api_key }}
+          TF_VAR_api_azure_openai_deployment: ${{ secrets.TF_VAR_api_azure_openai_deployment }}
+          TF_VAR_api_azure_openai_api_version: ${{ vars.TF_VAR_api_azure_openai_api_version }}
+        run: |
+          set +e
+          terraform plan \
+            -input=false \
+            -no-color \
+            -detailed-exitcode \
+            -var-file="terraform.blob-storage.example.tfvars" \
+            -out="terraform-ci.tfplan"
+          exit_code=$?
+          set -e
+
+          if [[ "${exit_code}" -eq 1 ]]; then
+            echo "Terraform plan failed."
+            exit 1
+          fi
+
+          if [[ "${exit_code}" -ne 0 && "${exit_code}" -ne 2 ]]; then
+            echo "Unexpected terraform plan exit code: ${exit_code}"
+            exit "${exit_code}"
+          fi
+
+          echo "exit_code=${exit_code}" >> "${GITHUB_OUTPUT}"
+
+      - name: Analyze plan safety
+        shell: bash
+        run: |
+          terraform show -json terraform-ci.tfplan > terraform-plan.json
+          python3 ../../../scripts/check_plan_safety.py terraform-plan.json \
+            --summary-file "${GITHUB_STEP_SUMMARY}"
+
+      - name: Remove sensitive plan files
+        if: always()
+        run: rm -f terraform-ci.tfplan terraform-plan.json
+
+  terraform-plan-skipped:
+    name: Terraform plan safety
+    needs: terraform-quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: >-
+      !(
+        vars.TERRAFORM_CLOUD_PLAN_ENABLED == 'true' &&
+        (github.event_name != 'pull_request' ||
+         github.event.pull_request.head.repo.fork == false) &&
+        secrets.AZURE_CLIENT_ID != ''
+      )
+
+    steps:
+      - name: Document skipped cloud plan
+        run: |
+          {
+            echo "## Terraform Cloud Plan"
+            echo
+            if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.pull_request.head.repo.fork }}" == "true" ]]; then
+              echo "Cloud plan skipped because Azure credentials are unavailable for fork pull requests."
+            else
+              echo "Cloud plan skipped — Azure OIDC, remote state backend, and real tfvars inputs are configured in Block 6.3."
+            fi
+            echo
+            echo "Static validation and security checks completed in the **Terraform quality** job."
+          } >> "${GITHUB_STEP_SUMMARY}"

@@ -1,0 +1,18 @@
+# FitTrack AI — Trivy config scan baseline (Block 6.2)
+#
+# Policy: CRITICAL and HIGH findings block CI. MEDIUM/LOW are informational unless
+# promoted after review.
+#
+# Static scans without real tfvars may not evaluate all gated modules. Re-baseline
+# when cloud plan is enabled in Block 6.3.
+#
+# Documented dev-environment accepted risks (future remediation, not Block 6.2):
+# - PostgreSQL public_network_access_enabled in dev
+# - Key Vault purge protection disabled in dev
+# - Storage public_network_access_enabled in dev
+# - Container App external ingress for demo API health checks
+#
+# Add rule IDs below only after a reviewed finding is accepted as baseline debt.
+
+# Key Vault network ACL not configured — accepted dev portfolio risk (Block 6.2).
+AVD-AZU-0013

@@ -1,0 +1,10 @@
+{
+  "resource_changes": [
+    {
+      "address": "azurerm_postgresql_flexible_server.this",
+      "change": {
+        "actions": ["delete", "create"]
+      }
+    }
+  ]
+}

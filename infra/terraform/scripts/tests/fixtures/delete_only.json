@@ -1,0 +1,10 @@
+{
+  "resource_changes": [
+    {
+      "address": "azurerm_key_vault_secret.openai_endpoint",
+      "change": {
+        "actions": ["delete"]
+      }
+    }
+  ]
+}

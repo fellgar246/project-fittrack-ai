@@ -1,0 +1,16 @@
+{
+  "resource_changes": [
+    {
+      "address": "azurerm_resource_group.example",
+      "change": {
+        "actions": ["create"]
+      }
+    },
+    {
+      "address": "azurerm_storage_account.example",
+      "change": {
+        "actions": ["read", "create"]
+      }
+    }
+  ]
+}

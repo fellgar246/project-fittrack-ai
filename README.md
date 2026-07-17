@@ -16,6 +16,7 @@ curl "https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapp
 
 ![Backend CI](https://github.com/fellgar246/project-fittrack-ai/actions/workflows/backend-ci.yml/badge.svg)
 ![Flutter CI](https://github.com/fellgar246/project-fittrack-ai/actions/workflows/flutter-ci.yml/badge.svg)
+![Terraform CI](https://github.com/fellgar246/project-fittrack-ai/actions/workflows/terraform-ci.yml/badge.svg)
 
 ---
 
@@ -117,7 +118,7 @@ See [mobile/README.md](mobile/README.md) for iOS Simulator and Android Emulator 
 
 ---
 
-## CI quality gates (Block 6.1)
+## CI quality gates (Block 6.1 + 6.2)
 
 Pull requests and pushes to `main` run automated checks via GitHub Actions:
 
@@ -125,10 +126,14 @@ Pull requests and pushes to `main` run automated checks via GitHub Actions:
 |-------|----------|-------|
 | **Backend quality** | [Backend CI](.github/workflows/backend-ci.yml) | uv sync, Alembic, Ruff lint, pytest + PostgreSQL |
 | **Flutter quality** | [Flutter CI](.github/workflows/flutter-ci.yml) | format, analyze, unit/widget tests |
+| **Terraform quality** | [Terraform CI](.github/workflows/terraform-ci.yml) | fmt, validate, Trivy, Gitleaks, file hygiene |
 
-Full documentation: [docs/github-actions-quality-gates.md](docs/github-actions-quality-gates.md)
+Full documentation:
 
-No deployment, Azure credentials, or Terraform apply in this block.
+- [docs/github-actions-quality-gates.md](docs/github-actions-quality-gates.md) — Backend and Flutter (Block 6.1)
+- [docs/terraform-ci-security.md](docs/terraform-ci-security.md) — Terraform CI and security (Block 6.2)
+
+No deployment, Azure credentials, or `terraform apply` in these blocks. Cloud-backed Terraform plan is scaffolded but skipped until Block 6.3.
 
 ---
 
@@ -173,6 +178,7 @@ Full evidence: [docs/mobile-cloud-release-checkpoint.md#15-validation-evidence](
 | Document | Purpose |
 |----------|---------|
 | [docs/github-actions-quality-gates.md](docs/github-actions-quality-gates.md) | **GitHub Actions CI quality gates (Block 6.1)** |
+| [docs/terraform-ci-security.md](docs/terraform-ci-security.md) | **Terraform CI and security checks (Block 6.2)** |
 | [docs/mobile-cloud-release-checkpoint.md](docs/mobile-cloud-release-checkpoint.md) | **Mobile + Cloud release checkpoint (Block 5.11)** |
 | [docs/backend-cloud-checkpoint.md](docs/backend-cloud-checkpoint.md) | Backend/cloud checkpoint (Block 4.24) |
 | [docs/portfolio-demo.md](docs/portfolio-demo.md) | Portfolio overview and interview narrative |
@@ -202,6 +208,4 @@ This demo provisions **real Azure resources** that may incur cost. See [docs/tea
 
 ## Recommended next phase
 
-**Block 6.2 — Terraform CI** — fmt, validate, safe plan, and IaC security checks. Backend and
-Flutter quality gates are in place (Block 6.1); see
-[docs/github-actions-quality-gates.md](docs/github-actions-quality-gates.md).
+**Block 6.3 — Azure OIDC + Protected Backend Deployment** — federated identity, remote Terraform state, cloud-backed plan, protected apply. Terraform static CI is in place (Block 6.2); see [docs/terraform-ci-security.md](docs/terraform-ci-security.md).
