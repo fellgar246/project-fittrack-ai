@@ -1,5 +1,47 @@
 # FitTrack AI — Azure Terraform
 
+## Executive summary (Block 5.11)
+
+> **Mobile + Cloud checkpoint:** [docs/mobile-cloud-release-checkpoint.md](../../../docs/mobile-cloud-release-checkpoint.md)
+
+| Item | Value |
+|------|-------|
+| Environment | `environments/dev/` |
+| Backend image tag | `block-5.8-amd64-fix` |
+| Terraform plan | Clean (No changes when aligned) |
+| Key modules | resource_group, acr, monitoring, container_apps_environment, managed_identities, container_apps, key_vault, postgres, blob_storage, azure_openai |
+
+### Safe plan (dev)
+
+```bash
+cd infra/terraform/azure/environments/dev
+terraform fmt -check -recursive
+terraform validate
+terraform plan \
+  -var-file="terraform.azure-openai.example.tfvars" \
+  -var-file="terraform.azure-openai.local.tfvars" \
+  -var-file="terraform.blob-storage.example.tfvars"
+```
+
+- `terraform.azure-openai.local.tfvars` is **local and gitignored** — never commit it.
+- **Never apply using only example tfvars** when local Azure OpenAI values are required.
+- Review every plan manually; do not use `-auto-approve` without review.
+- **Do not run `terraform destroy`** unless formally closing the demo environment.
+
+### Deploy sequence (when code or image changes)
+
+1. Backend tests + Alembic migration locally
+2. `docker build --platform linux/amd64` → push to ACR
+3. Update `container_app_image_tag` in local tfvars
+4. `terraform plan` → review → `terraform apply`
+5. Run cloud Alembic migration if schema changed
+6. `GET /health` → smoke scripts
+7. Final drift check (`terraform plan` → No changes)
+
+See [azure-blob-progress-photos.md](../../../docs/azure-blob-progress-photos.md) for Blob Storage RBAC details.
+
+---
+
 ## 1. Objetivo
 
 Este documento cubre cuatro bloques:

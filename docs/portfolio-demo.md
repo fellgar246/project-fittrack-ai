@@ -1,5 +1,9 @@
 # FitTrack AI — Portfolio Demo
 
+> **Updated scope:** This document covers the backend/cloud phase (Block 4.24). For the complete
+> mobile + cloud release including Flutter, progress photos, and validation evidence, see
+> [mobile-cloud-release-checkpoint.md](mobile-cloud-release-checkpoint.md).
+
 ## 1. Executive summary
 
 FitTrack AI is a cloud-native fitness API I built to demonstrate backend engineering, Azure

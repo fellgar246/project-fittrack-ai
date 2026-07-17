@@ -1,11 +1,9 @@
 # FitTrack AI
 
-A cloud-native fitness platform currently validated at the backend and cloud infrastructure
-layer. The backend is built with FastAPI, PostgreSQL, Docker, Terraform and Azure, runs on Azure
-Container Apps from a private Azure Container Registry, uses Managed Identity and Key Vault for
-secure runtime configuration, persists data in Azure PostgreSQL, and generates weekly fitness
-recommendations using Azure OpenAI. This backend/cloud checkpoint prepares the project for the
-next phase: a Flutter mobile client connected to the validated cloud API.
+A cloud-native fitness mobile application built with **Flutter**, **FastAPI**, and **Azure**.
+Authenticated users track measurements, nutrition, and workouts; review backend-calculated weekly
+readiness; receive persisted **Azure OpenAI** recommendations; and upload private progress photos
+via direct **Azure Blob Storage** transfers secured with short-lived user-delegation SAS tokens.
 
 **Live API (dev):** `https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io`
 
@@ -14,31 +12,65 @@ curl "https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapp
 # {"status":"ok","service":"fittrack-ai-api","version":"0.1.0"}
 ```
 
-For the full portfolio narrative — architecture diagrams, validated flows, tradeoffs,
-interview talking points, and teardown notes — see **[Portfolio Demo](docs/portfolio-demo.md)**.
+**Central release document:** [Mobile + Cloud Release Checkpoint](docs/mobile-cloud-release-checkpoint.md)
 
 ---
 
-## Current status
+## Current release status
 
-FitTrack AI has completed its backend and cloud checkpoint. The FastAPI backend is deployed to
-Azure Container Apps, connected to Azure PostgreSQL, configured with Key Vault-managed secrets,
-and validated with Azure OpenAI for weekly fitness recommendations.
+FitTrack AI has completed the **Mobile + Cloud Release Checkpoint (Block 5.11)**. The Flutter
+client, FastAPI backend, and Azure development environment are validated together as a
+portfolio-grade, incrementally implemented system — not a production SLA release.
 
-The Flutter mobile foundation, authentication flow, functional cloud-backed dashboard,
-measurements flow, nutrition logs flow, workout flow, and weekly AI recommendation flow are implemented through Block 5.7. The FastAPI backend
-remains stable and unchanged during the mobile phase. This is not the final product release.
+| Item | Value |
+|------|-------|
+| Backend image | `block-5.8-amd64-fix` |
+| Alembic revision | `a8c3b1d92e47` |
+| Backend tests | 100 passed |
+| Flutter tests | 319 passed (+ 1 cloud E2E opt-in skipped) |
+| Terraform plan | No changes |
+| Cloud health | HTTP 200 |
+
+Prior backend-only checkpoint: [docs/backend-cloud-checkpoint.md](docs/backend-cloud-checkpoint.md)
 
 ---
 
-## What it demonstrates
+## Architecture
 
-- **Backend API** — FastAPI, async SQLAlchemy, PostgreSQL, Alembic migrations, JWT auth
-- **Cloud deployment** — Docker production image → private ACR → Azure Container Apps
-- **Secrets management** — Azure Key Vault with Managed Identity (no static credentials)
-- **Infrastructure as Code** — modular Terraform with incremental `create_*` rollout
-- **Applied AI** — weekly recommendations via Azure OpenAI in cloud (`fittrack-gpt-5-mini`); `FakeAIProvider` for local/test/fallback
-- **End-to-end validation** — 19 cloud endpoints smoke-tested with real PostgreSQL persistence
+```mermaid
+flowchart LR
+    Mobile[Flutter Mobile App]
+    API[FastAPI on Azure Container Apps]
+    DB[(Azure PostgreSQL)]
+    KV[Azure Key Vault]
+    AOAI[Azure OpenAI]
+    Blob[Private Azure Blob Storage]
+
+    Mobile -->|JWT REST API| API
+    API --> DB
+    API --> KV
+    API --> AOAI
+    API -->|User delegation SAS| Mobile
+    Mobile -->|Direct HTTPS PUT| Blob
+    API -->|Validate blob metadata| Blob
+```
+
+---
+
+## Main features
+
+| Feature | Mobile | Backend | Cloud |
+|---------|--------|---------|-------|
+| Authentication (JWT) | Yes | Yes | Validated |
+| Dashboard | Yes | Yes | Validated |
+| Measurements (list/create) | Yes | Yes | Validated |
+| Nutrition logs (list/create) | Yes | Yes | Validated |
+| Workouts (exercise-level log) | Yes | Yes | Validated |
+| Weekly summary + AI recommendations | Yes | Yes | Validated |
+| Progress photos (direct Blob upload) | Yes | Yes | Validated |
+
+See the [feature matrix](docs/mobile-cloud-release-checkpoint.md#8-feature-matrix) for CRUD
+limitations.
 
 ---
 
@@ -46,122 +78,17 @@ remains stable and unchanged during the mobile phase. This is not the final prod
 
 | Layer | Technologies |
 |-------|--------------|
+| Mobile | Flutter 3.13.7, Dart 3.1.3, Riverpod, go_router, Dio, flutter_secure_storage |
 | API | Python 3.11, FastAPI, Pydantic, SQLAlchemy async, Alembic |
 | Database | PostgreSQL 16 (Azure Flexible Server) |
-| Container | Docker multi-stage, non-root runtime |
-| Cloud | Azure Container Apps, ACR, Key Vault, Log Analytics, Azure OpenAI |
+| Cloud | Azure Container Apps, ACR, Key Vault, Blob Storage, Azure OpenAI, Log Analytics |
 | IaC | Terraform (modular, `azurerm` provider) |
-| Mobile | Flutter (foundation in `mobile/`) |
 
 ---
 
-## Cloud architecture at a glance
+## Quick local setup
 
-FitTrack AI runs as a FastAPI container on **Azure Container Apps**. The image is stored in a
-private **Azure Container Registry** and pulled using a **User Assigned Managed Identity** with
-`AcrPull`. Runtime secrets (`DATABASE_URL`, `JWT_SECRET_KEY`, Azure OpenAI credentials) live in
-**Azure Key Vault** and are exposed to the app through Key Vault-backed Container App secret
-references — Azure resolves them into the container environment before startup. Data persists in
-**Azure PostgreSQL Flexible Server**; schema migrations are managed by **Alembic**. Weekly
-recommendations use **Azure OpenAI** (`fittrack-gpt-5-mini`). Infrastructure is defined with
-**Terraform modules** and applied incrementally across 24 documented blocks.
-
-```
-Client → Azure Container Apps (FastAPI)
-              ↓ Managed Identity
-         Azure Key Vault (secrets)
-              ↓
-         Azure PostgreSQL (fittrack_ai)
-              ↓
-         Azure OpenAI (recommendations)
-```
-
----
-
-## Validated API flows (cloud)
-
-| Area | Endpoints | Status |
-|------|-----------|--------|
-| Health | `GET /health` | HTTP 200 |
-| Auth | register, login, `GET /auth/me` | 201 / 200 / 200 |
-| Measurements | list, create, progress | 201 / 200 |
-| Nutrition | logs + summary | 201 / 200 |
-| Workouts | plans, logs, summaries | 201 / 200 |
-| Weekly | `GET /weekly-summary` | 200 (AI-ready) |
-| AI | weekly recommendation + latest | 201 / 200 (Azure OpenAI) |
-
-Full smoke test runbook: [docs/cloud-api-smoke-test.md](docs/cloud-api-smoke-test.md)
-
----
-
-## AI capability status
-
-- **Current (cloud):** `AzureOpenAIProvider` — deployment `fittrack-gpt-5-mini` (Block 4.23 validated)
-- **Fallback:** `FakeAIProvider` — deterministic local/test provider; no external API dependency
-- **Infrastructure:** Terraform wiring for `AI_PROVIDER=azure` + Key Vault secrets
-- **Details:** [docs/azure-openai-runtime.md](docs/azure-openai-runtime.md)
-
----
-
-## Security notes
-
-- No secrets baked into Docker images
-- Key Vault for sensitive runtime configuration
-- Managed Identity for ACR pull and Key Vault access (no static passwords)
-- JWT bearer auth on protected routes
-- Demo uses synthetic data only — no real personal information
-
----
-
-## Known limitations
-
-- Flutter mobile foundation established in `mobile/` (Block 5.1)
-- Mobile auth, dashboard, measurements, nutrition logs, workouts, and weekly AI recommendation are implemented
-- Azure OpenAI responses can take ~20–30s (no streaming/timeout tuning yet)
-- PostgreSQL uses public endpoint with narrow ACA egress firewall (dev/portfolio compromise)
-- No private networking, CI/CD pipeline, custom domain, or load testing
-- See [Known limitations](docs/portfolio-demo.md#13-known-limitations) for full list
-
----
-
-## Documentation map
-
-| Document | Purpose |
-|----------|---------|
-| [docs/portfolio-demo.md](docs/portfolio-demo.md) | Portfolio overview, architecture, interview narrative |
-| [docs/backend-cloud-checkpoint.md](docs/backend-cloud-checkpoint.md) | Backend/cloud release checkpoint |
-| [docs/backend-cloud-demo-checklist.md](docs/backend-cloud-demo-checklist.md) | Safe demo checklist |
-| [mobile/README.md](mobile/README.md) | Flutter mobile client setup and run commands |
-| [docs/mobile-flutter-transition.md](docs/mobile-flutter-transition.md) | Flutter mobile transition notes |
-| [docs/flutter-auth.md](docs/flutter-auth.md) | Flutter authentication architecture (Block 5.2) |
-| [docs/flutter-dashboard.md](docs/flutter-dashboard.md) | Flutter dashboard architecture (Block 5.3) |
-| [docs/flutter-measurements.md](docs/flutter-measurements.md) | Flutter measurements architecture (Block 5.4) |
-| [docs/flutter-nutrition.md](docs/flutter-nutrition.md) | Flutter nutrition logs architecture (Block 5.5) |
-| [docs/flutter-workouts.md](docs/flutter-workouts.md) | Flutter workout flow architecture (Block 5.6) |
-| [docs/flutter-weekly-recommendation.md](docs/flutter-weekly-recommendation.md) | Flutter weekly summary + AI recommendation (Block 5.7) |
-| [docs/teardown.md](docs/teardown.md) | Cost control and teardown guide |
-| [backend/README.md](backend/README.md) | API reference, local dev, migrations |
-| [infra/terraform/azure/README.md](infra/terraform/azure/README.md) | Terraform blocks journal (4.1–4.24) |
-| [docs/cloud-api-smoke-test.md](docs/cloud-api-smoke-test.md) | Cloud smoke test runbook |
-| [docs/docker-production.md](docs/docker-production.md) | Production Docker image |
-| [docs/azure-container-apps-deploy.md](docs/azure-container-apps-deploy.md) | ACR + ACA deploy guide |
-| [docs/azure-openai-runtime.md](docs/azure-openai-runtime.md) | Azure OpenAI runtime verification (Block 4.23) |
-
----
-
-## Cost and teardown warning
-
-This demo provisions **real Azure resources** (PostgreSQL, Container Apps, ACR, Key Vault, Log
-Analytics, Azure OpenAI) that may incur cost. Do not leave resources running if not needed.
-
-See [docs/teardown.md](docs/teardown.md) for the teardown guide.
-
-**Do not run `terraform destroy` unless you intentionally want to remove the demo
-infrastructure.** Review the plan carefully before confirming.
-
----
-
-## Local development
+### Backend
 
 ```bash
 cd backend
@@ -171,118 +98,90 @@ uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
 ```
 
-See [backend/README.md](backend/README.md) for full setup.
+See [backend/README.md](backend/README.md).
+
+### Flutter (cloud API)
+
+```bash
+cd mobile
+flutter pub get
+flutter run \
+  --dart-define=APP_ENV=development \
+  --dart-define=API_BASE_URL=https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io
+```
+
+See [mobile/README.md](mobile/README.md) for iOS Simulator and Android Emulator URLs.
 
 ---
 
-## Flutter mobile dashboard
+## Validation summary
 
-The authenticated Flutter client now provides a functional dashboard backed by the FitTrack AI
-cloud API.
+| Check | Result |
+|-------|--------|
+| Backend `ruff check` | Passed |
+| Backend `pytest` | 100/100 |
+| Flutter `analyze` | Clean |
+| Flutter `test` | 319 passed, 1 skipped |
+| Terraform plan | No changes |
+| Cloud `/health` | HTTP 200 |
 
-The dashboard presents the current weekly status, recent progress data, the latest AI
-recommendation and navigation entry points for measurements, nutrition and workouts. It supports
-loading, empty, partial-error and refresh states while reusing the existing secure authentication
-session.
+Full evidence: [docs/mobile-cloud-release-checkpoint.md#15-validation-evidence](docs/mobile-cloud-release-checkpoint.md#15-validation-evidence)
 
-```bash
-cd mobile
-flutter pub get
-flutter run \
-  --dart-define=APP_ENV=development \
-  --dart-define=API_BASE_URL=https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io
-```
+---
 
-See [mobile/README.md](mobile/README.md) for platform-specific local API commands,
-[docs/flutter-auth.md](docs/flutter-auth.md) for authentication details, and
-[docs/flutter-dashboard.md](docs/flutter-dashboard.md) for dashboard contracts and loading
-strategy.
+## Portfolio and demo
 
-## Flutter measurements flow
+- **Checkpoint narrative:** [docs/mobile-cloud-release-checkpoint.md](docs/mobile-cloud-release-checkpoint.md)
+- **Demo runbook (5–8 min):** [docs/mobile-cloud-release-checkpoint.md#23-demo-runbook](docs/mobile-cloud-release-checkpoint.md#23-demo-runbook)
+- **Interview talking points:** [docs/mobile-cloud-release-checkpoint.md#26-interview-talking-points](docs/mobile-cloud-release-checkpoint.md#26-interview-talking-points)
+- **Backend portfolio demo:** [docs/portfolio-demo.md](docs/portfolio-demo.md)
+- **Teardown / cost control:** [docs/teardown.md](docs/teardown.md)
 
-The Flutter client now supports authenticated body measurement tracking against the FitTrack AI
-cloud API. Users can review their measurement history, add new measurements, inspect a progress
-summary and refresh the dashboard after recording new data.
+---
 
-```bash
-cd mobile
-flutter pub get
-flutter run \
-  --dart-define=APP_ENV=development \
-  --dart-define=API_BASE_URL=https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io
-```
+## Known limitations
 
-See [docs/flutter-measurements.md](docs/flutter-measurements.md) for endpoint contracts, units,
-loading strategy, and limitations.
+- No refresh token (~60 minute JWT expiry)
+- No edit/delete for measurements, nutrition, workout logs, or progress photos
+- Workout logging is per-exercise, not full session
+- Progress photos: gallery only (no camera, thumbnails, delete)
+- Azure development environment only; no CI/CD or production SLA
+- Full list: [docs/mobile-cloud-release-checkpoint.md#21-known-limitations](docs/mobile-cloud-release-checkpoint.md#21-known-limitations)
 
-## Flutter nutrition logs flow
+---
 
-The Flutter client now supports authenticated nutrition logging against the FitTrack AI cloud API.
-Users can review recent nutrition entries, add daily logs, inspect the weekly nutrition summary
-and refresh the dashboard readiness state after recording new data.
+## Documentation index
 
-```bash
-cd mobile
-flutter pub get
-flutter run \
-  --dart-define=APP_ENV=development \
-  --dart-define=API_BASE_URL=https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io
-```
+| Document | Purpose |
+|----------|---------|
+| [docs/mobile-cloud-release-checkpoint.md](docs/mobile-cloud-release-checkpoint.md) | **Mobile + Cloud release checkpoint (Block 5.11)** |
+| [docs/backend-cloud-checkpoint.md](docs/backend-cloud-checkpoint.md) | Backend/cloud checkpoint (Block 4.24) |
+| [docs/portfolio-demo.md](docs/portfolio-demo.md) | Portfolio overview and interview narrative |
+| [docs/mobile-flutter-transition.md](docs/mobile-flutter-transition.md) | Flutter transition journal (Blocks 5.1–5.11) |
+| [docs/progress-photos-architecture.md](docs/progress-photos-architecture.md) | Progress photo architecture |
+| [docs/azure-blob-progress-photos.md](docs/azure-blob-progress-photos.md) | Azure Blob Storage setup |
+| [docs/flutter-progress-photos.md](docs/flutter-progress-photos.md) | Flutter progress photos flow |
+| [docs/progress-photos-release-validation.md](docs/progress-photos-release-validation.md) | Cloud release validation (Block 5.10) |
+| [docs/flutter-weekly-recommendation.md](docs/flutter-weekly-recommendation.md) | Weekly summary + AI (Block 5.7) |
+| [docs/azure-container-apps-deploy.md](docs/azure-container-apps-deploy.md) | ACR + Container Apps deploy |
+| [docs/cloud-api-smoke-test.md](docs/cloud-api-smoke-test.md) | Cloud API smoke test runbook |
+| [backend/README.md](backend/README.md) | API reference and local dev |
+| [mobile/README.md](mobile/README.md) | Flutter setup and architecture |
+| [infra/terraform/azure/README.md](infra/terraform/azure/README.md) | Terraform modules and deploy |
 
-See [docs/flutter-nutrition.md](docs/flutter-nutrition.md) for endpoint contracts, units,
-loading strategy, and limitations.
+Feature-specific Flutter docs: [flutter-auth.md](docs/flutter-auth.md), [flutter-dashboard.md](docs/flutter-dashboard.md), [flutter-measurements.md](docs/flutter-measurements.md), [flutter-nutrition.md](docs/flutter-nutrition.md), [flutter-workouts.md](docs/flutter-workouts.md).
 
-## Flutter workout flow
+---
 
-The Flutter client now supports authenticated workout plan browsing and completed exercise logging
-against the FitTrack AI cloud API. Users can review available plans, inspect plan details, record
-exercise performance and refresh the weekly dashboard readiness state.
+## Cost and teardown warning
 
-```bash
-cd mobile
-flutter pub get
-flutter run \
-  --dart-define=APP_ENV=development \
-  --dart-define=API_BASE_URL=https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io
-```
+This demo provisions **real Azure resources** that may incur cost. See [docs/teardown.md](docs/teardown.md).
 
-See [docs/flutter-workouts.md](docs/flutter-workouts.md) for endpoint contracts, exercise-level
-logging semantics, loading strategy, and limitations.
+**Do not run `terraform destroy` unless you intentionally want to remove the demo infrastructure.**
 
-## Flutter weekly summary and AI recommendation
+---
 
-The Flutter client now closes the primary FitTrack AI product loop. Authenticated users can review
-their weekly readiness, identify missing fitness data, generate a persisted weekly recommendation
-through the FastAPI backend and Azure OpenAI, and view the result in both the dedicated weekly
-screen and dashboard.
+## Recommended next phase
 
-```bash
-cd mobile
-flutter pub get
-flutter run \
-  --dart-define=APP_ENV=development \
-  --dart-define=API_BASE_URL=https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io
-```
-
-See [docs/flutter-weekly-recommendation.md](docs/flutter-weekly-recommendation.md) for endpoint
-contracts, readiness rendering, generation lifecycle, timeout strategy, and limitations.
-
-## Next steps
-
-1. **Block 5.11 — Mobile + Cloud Release Checkpoint** — portfolio architecture, feature matrix, demo strategy
-2. **Private Networking Plan** (deferred) — VNet, private PostgreSQL, NAT Gateway
-3. **Observability polish** (deferred) — Application Insights dashboards and alerts
-
-## Progress photos
-
-Backend foundation (Block 5.8), Flutter client (Block 5.9), and cloud release validation (Block 5.10) are complete:
-
-- Direct-to-Blob upload via user-delegation SAS (cloud validated)
-- PostgreSQL metadata with ownership validation
-- Private Azure Blob container deployed in dev
-- Flutter gallery, upload, confirm, and on-demand read access (cloud E2E validated)
-
-See [docs/progress-photos-architecture.md](docs/progress-photos-architecture.md),
-[docs/azure-blob-progress-photos.md](docs/azure-blob-progress-photos.md),
-[docs/flutter-progress-photos.md](docs/flutter-progress-photos.md), and
-[docs/progress-photos-release-validation.md](docs/progress-photos-release-validation.md).
+**Observability and CI/CD** — automated backend, Flutter, and Terraform validation; see
+[checkpoint recommendation](docs/mobile-cloud-release-checkpoint.md#recommended-next-phase).

@@ -10,7 +10,7 @@ Close Blocks 5.8 and 5.9 operationally in cloud and validate the end-to-end flow
 Flutter → FastAPI → Azure Blob Storage → PostgreSQL → gallery → temporary read access
 ```
 
-Also execute the pending Block 5.7 interactive cloud smoke separately.
+Also execute the Block 5.7 interactive cloud smoke (completed in Phase F below).
 
 ## Release scope
 
@@ -18,14 +18,16 @@ Also execute the pending Block 5.7 interactive cloud smoke separately.
 - Minimal fixes only: `aiohttp` dependency (Block 5.8 cloud), `storage_use_azuread` in Terraform provider (already applied)
 - Cloud smoke scripts and Flutter cloud E2E integration test added for repeatable validation
 
-## Git baseline (preserved, uncommitted)
+## Git baseline (committed)
 
-| Group | Scope |
+Blocks 5.7–5.10 are committed on `main`:
+
+| Commit | Scope |
 | --- | --- |
-| Block 5.7 | Weekly summary + AI recommendation Flutter |
-| Block 5.8 | Backend progress photos, Terraform blob storage, `aiohttp`, `providers.tf` |
-| Block 5.9 | Flutter progress photos UI + tests |
-| Block 5.10 | Smoke scripts, cloud E2E test, release validation docs, local tfvars image tag alignment |
+| `d2d1017` | Block 5.7 Flutter weekly/recommendations + Block 5.8 backend progress photos + Terraform blob |
+| `7adf8b0` | Block 5.9 Flutter progress photos + Block 5.10 smoke scripts, cloud E2E, validation docs |
+
+Block 5.11 (this checkpoint) adds portfolio documentation only.
 
 ## Phase A — Local baseline
 
@@ -198,13 +200,10 @@ flutter test test/integration/cloud_progress_photos_e2e_test.dart \
 | Documentation | Complete |
 | **Final acceptance** | **Complete** |
 
-## Suggested commits (not executed)
+## Suggested commits (historical note)
 
-1. `feat: add progress photo storage foundation` — Block 5.8 backend + Terraform
-2. `feat: add Flutter progress photos flow` — Block 5.9
-3. `feat: add Flutter weekly recommendations flow` — Block 5.7
-4. `chore: validate progress photos cloud release` — Block 5.10 scripts, docs, integration test
+Blocks 5.7–5.10 were committed as `d2d1017` and `7adf8b0` rather than the originally suggested four-commit split.
 
 ## Next step
 
-**Block 5.11 — Mobile + Cloud Release Checkpoint** (documentary portfolio closure only).
+**Block 5.11 — Mobile + Cloud Release Checkpoint** — complete. See [mobile-cloud-release-checkpoint.md](mobile-cloud-release-checkpoint.md).

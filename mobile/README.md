@@ -2,13 +2,16 @@
 
 Flutter mobile client for the FitTrack AI cloud-native fitness platform.
 
+> **Release checkpoint:** [docs/mobile-cloud-release-checkpoint.md](../docs/mobile-cloud-release-checkpoint.md)
+
 ## Overview
 
-This folder contains the FitTrack AI mobile application. Blocks 5.2–5.6 provide real cloud
-authentication, a functional fitness dashboard, authenticated measurements flow, nutrition logging,
-and workout plan browsing with exercise-level logging backed by the existing API.
+This folder contains the FitTrack AI mobile application. Blocks 5.2–5.9 provide authenticated
+cloud-backed flows: dashboard, measurements, nutrition, workouts, weekly AI recommendations, and
+progress photos with direct Blob upload.
 
 **Application ID:** `com.fittrackai.fittrack_ai`
+**Tests:** 319 passed (+ 1 cloud E2E opt-in skipped) · **Flutter:** 3.13.7 · **Dart:** 3.1.3
 
 ## Requirements
 
@@ -90,8 +93,10 @@ See [docs/flutter-progress-photos.md](../docs/flutter-progress-photos.md).
 ```bash
 flutter run \
   --dart-define=APP_ENV=development \
-  --dart-define=API_BASE_URL=https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io
+  --dart-define=API_BASE_URL=<api-url>
 ```
+
+Example dev URL: `https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io`
 
 ## Run against local API on iOS Simulator
 
@@ -115,6 +120,13 @@ flutter run \
 - Passwords are never persisted
 - Authorization headers and sensitive fields are redacted from development logs
 - No refresh token flow (backend does not support refresh tokens)
+- **Separate Dio clients:** authenticated API client vs unauthenticated Blob upload client — bearer
+  token is never sent to Azure Blob Storage SAS URLs
+
+## Image picker permissions
+
+- **iOS:** Photo library usage description in `ios/Runner/Info.plist`
+- **Android:** Photo Picker (no broad storage permissions required)
 
 ## Testing
 
@@ -123,6 +135,17 @@ dart format --output=none --set-exit-if-changed .
 flutter analyze
 flutter test
 ```
+
+**319 tests** run by default. One cloud integration test is **skipped** unless opt-in:
+
+```bash
+flutter test test/integration/cloud_progress_photos_e2e_test.dart \
+  --dart-define=RUN_CLOUD_E2E=true \
+  --dart-define=APP_ENV=development \
+  --dart-define=API_BASE_URL=<api-url>
+```
+
+Regular `flutter test` does not require network access.
 
 ## Architecture
 
@@ -172,22 +195,6 @@ lib/
 - `POST /recommendations/weekly` with 60s receive timeout for Azure OpenAI latency
 - Duplicate-submit guard and uncertain-timeout recovery via latest reload
 - Dashboard refresh after successful generation
-
-## Run
-
-```bash
-flutter run \
-  --dart-define=APP_ENV=development \
-  --dart-define=API_BASE_URL=https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapps.io
-```
-
-## Validation
-
-```bash
-dart format --output=none --set-exit-if-changed .
-flutter analyze
-flutter test
-```
 
 ## Current limitations
 

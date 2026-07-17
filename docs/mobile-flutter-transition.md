@@ -38,7 +38,7 @@ Block 5.7 — Weekly Summary + AI Recommendation
 Block 5.8 — Progress Photos Storage Foundation (backend + cloud, completed)
 Block 5.9 — Flutter Progress Photos UI (completed)
 Block 5.10 — Progress Photos Cloud Deployment + E2E Release Validation (completed)
-Block 5.11 — Final Portfolio Release (planned)
+Block 5.11 — Mobile + Cloud Release Checkpoint (complete)
 ```
 
 ## Block 5.1 — Completed
@@ -364,17 +364,9 @@ Backend, PostgreSQL, Terraform, and Azure Blob Storage foundation for progress p
 
 See [docs/progress-photos-architecture.md](progress-photos-architecture.md).
 
-### Block 5.7 interactive smoke
+## Block 5.9 — Flutter Progress Photos UI — completed
 
-Still pending separately (not part of Block 5.8):
-
-- user not ready / user ready
-- real Azure OpenAI generation
-- persistence, latest recommendation, dashboard sync
-
-## Block 5.9 — Flutter Progress Photos UI — completed (local)
-
-Flutter gallery, upload, confirm, and detail flow on the Block 5.8 API. Cloud E2E smoke pending Block 5.8 deploy.
+Flutter gallery, upload, confirm, and detail flow on the Block 5.8 API. Cloud E2E validated in Block 5.10.
 
 ### Delivered
 
@@ -408,8 +400,7 @@ Cloud deployment and end-to-end validation for progress photos and Block 5.7 int
 
 See [progress-photos-release-validation.md](progress-photos-release-validation.md).
 
-## Next block
+## Block 5.11 — Mobile + Cloud Release Checkpoint — completed
 
-```text
-Block 5.11 — Mobile + Cloud Release Checkpoint (portfolio)
-```
+Portfolio documentation consolidating Blocks 5.1–5.10. See
+[mobile-cloud-release-checkpoint.md](mobile-cloud-release-checkpoint.md).

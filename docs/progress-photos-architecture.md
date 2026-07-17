@@ -1,6 +1,6 @@
-# Progress Photos Architecture (Block 5.8)
+# Progress Photos Architecture (Blocks 5.8–5.10)
 
-Block 5.8 adds the backend, PostgreSQL, Azure Blob Storage, Terraform, and security foundation for FitTrack AI progress photos. Flutter selection, upload UI, and gallery belong to Block 5.9.
+Backend, PostgreSQL, Azure Blob Storage, Terraform, Flutter client, and cloud validation for FitTrack AI progress photos. Blocks 5.8 (backend), 5.9 (Flutter), and 5.10 (cloud release validation) are complete.
 
 ## Decision: direct upload vs backend proxy
 

@@ -1,11 +1,15 @@
 # FitTrack AI — Backend
 
-> **Portfolio demo:** For the cloud architecture overview, validated flows, tradeoffs, interview
-> narrative, and teardown notes, see [Portfolio Demo](../docs/portfolio-demo.md).
+> **Mobile + Cloud checkpoint:** [docs/mobile-cloud-release-checkpoint.md](../docs/mobile-cloud-release-checkpoint.md)
+> — architecture, feature matrix, validation evidence, demo runbook.
+>
+> **Backend/cloud checkpoint (Block 4.24):** [docs/backend-cloud-checkpoint.md](../docs/backend-cloud-checkpoint.md)
 
-API backend de FitTrack AI. Último bloque de infraestructura: **4.24 — Backend & Cloud Release
-Checkpoint** (ver [Checkpoint backend/cloud](../docs/backend-cloud-checkpoint.md)).
-Último bloque de features backend: **5.2 — Azure OpenAI Integration**.
+API backend de FitTrack AI. Checkpoint actual: **Block 5.11 — Mobile + Cloud Release
+Checkpoint**. Features backend completas incluyen auth, fitness tracking, Azure OpenAI
+recommendations y progress photos con Azure Blob Storage.
+
+**Tests:** 100 pytest tests · **Alembic head:** `a8c3b1d92e47` · **Cloud image:** `block-5.8-amd64-fix`
 
 ## Stack
 
@@ -1942,7 +1946,8 @@ logs cambian después).
 
 ## Block 5.8 — Progress Photos Storage Foundation
 
-Backend-only foundation for secure progress photo metadata and Azure Blob Storage integration. Flutter upload/gallery UI is deferred to Block 5.9.
+Backend foundation for secure progress photo metadata and Azure Blob Storage integration.
+Flutter upload/gallery UI completed in Block 5.9; cloud validation in Block 5.10.
 
 ### Endpoints
 
@@ -1988,6 +1993,18 @@ cd backend
 
 See [`docs/progress-photos-release-validation.md`](../docs/progress-photos-release-validation.md).
 
-## Siguiente paso recomendado
+## Block 5.11 — Mobile + Cloud Release Checkpoint
 
-**Block 5.11 — Mobile + Cloud Release Checkpoint** (portfolio documentation). See [`docs/mobile-flutter-transition.md`](../docs/mobile-flutter-transition.md).
+Portfolio documentation packaging Blocks 5.1–5.10. See
+[`docs/mobile-cloud-release-checkpoint.md`](../docs/mobile-cloud-release-checkpoint.md).
+
+### Known limitations
+
+- No refresh token (~60 minute JWT expiry)
+- No edit/delete for measurements, nutrition logs, workout logs, or progress photos
+- Orphan blob cleanup not automated
+- `ruff format --check` reports ~30 legacy files with preexisting drift (not corrected in 5.11)
+
+### Recommended next phase
+
+Observability and CI/CD — see checkpoint doc for rationale.
