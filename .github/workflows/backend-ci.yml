@@ -1,0 +1,84 @@
+name: Backend CI
+
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-quality:
+    name: Backend quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: fittrack
+          POSTGRES_PASSWORD: fittrack
+          POSTGRES_DB: fittrack_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U fittrack -d fittrack_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DATABASE_URL: postgresql+psycopg://fittrack:fittrack@localhost:5432/fittrack_test
+      JWT_SECRET_KEY: ci-only-not-a-real-secret
+      AI_PROVIDER: fake
+      PROGRESS_PHOTO_STORAGE_PROVIDER: fake
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Wait for PostgreSQL
+        run: pg_isready -h localhost -p 5432 -U fittrack -d fittrack_test
+
+      - name: Run Alembic migrations
+        run: uv run alembic upgrade head
+
+      - name: Verify Alembic head
+        run: uv run alembic current
+
+      - name: Ruff lint
+        run: uv run ruff check .
+
+      - name: Run tests
+        run: uv run pytest

@@ -1486,6 +1486,21 @@ uv run pytest
 uv run ruff check .
 ```
 
+> **CI note (Block 6.1):** GitHub Actions runs `ruff check` only. `ruff format --check` is **not**
+> a blocking gate due to ~30 legacy files with preexisting formatting drift. See
+> [docs/github-actions-quality-gates.md](../docs/github-actions-quality-gates.md).
+
+## CI (GitHub Actions)
+
+Pull requests touching `backend/**` run the **Backend quality** check:
+
+```text
+uv sync --frozen → Alembic upgrade head → ruff check → pytest
+```
+
+Uses ephemeral PostgreSQL 16 with fake AI and storage providers (no Azure). Details:
+[docs/github-actions-quality-gates.md](../docs/github-actions-quality-gates.md).
+
 ## Decisiones técnicas — Bloque 2.2
 
 **¿Por qué JWT para este MVP?** Es stateless: no requiere tabla de sesiones ni

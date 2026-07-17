@@ -145,9 +145,14 @@ flutter test test/integration/cloud_progress_photos_e2e_test.dart \
   --dart-define=API_BASE_URL=<api-url>
 ```
 
-Regular `flutter test` does not require network access.
+Regular `flutter test` does not require network access. The cloud E2E is **excluded from CI** —
+GitHub Actions does not set `RUN_CLOUD_E2E`.
 
-## Architecture
+## CI (GitHub Actions)
+
+Pull requests touching `mobile/**` run the **Flutter quality** check (format, analyze, test) on
+Flutter 3.13.7. Cloud E2E remains opt-in only. Details:
+[docs/github-actions-quality-gates.md](../docs/github-actions-quality-gates.md).
 
 ```text
 lib/

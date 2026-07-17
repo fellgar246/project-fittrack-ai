@@ -644,7 +644,7 @@ No exact monthly figures are documented here; consult Azure Cost Management for 
 
 ### Operations
 
-- No full CI/CD release pipeline
+- CI quality gates for backend and Flutter (Block 6.1); no full release/deploy pipeline
 - No production environment or custom domain
 - No alerting or formal SLO/SLA
 
@@ -656,7 +656,7 @@ No exact monthly figures are documented here; consult Azure Cost Management for 
 
 - Refresh token / rotation
 - Progress-photo orphan cleanup job
-- CI pipeline (backend, Flutter, Terraform)
+- Terraform CI plan and security checks (Block 6.2)
 - Production-grade observability (Application Insights)
 - Dedicated staging/production environments
 
@@ -857,18 +857,19 @@ Alternative: `mobile-cloud-checkpoint`
 | Mobile features (5.1–5.9) | Complete |
 | Cloud validation (5.10) | Complete |
 | Portfolio documentation (5.11) | Complete |
+| CI quality gates — backend + Flutter (6.1) | Complete (GitHub run pending first push) |
 | Production readiness | Not claimed |
 
 ---
 
 ## Recommended next phase
 
-**B. Add observability and CI/CD**
+**Block 6.2 — Terraform CI Plan and Security Checks**
 
-The mobile + cloud feature set is portfolio-complete. The highest-value next step is automated
-validation (CI for backend, Flutter, Terraform) and basic observability, rather than new product
-features. This improves interview narrative, reduces regression risk, and supports cost-aware
-operation without expanding Azure scope prematurely.
+Backend and Flutter quality gates are implemented in Block 6.1
+([docs/github-actions-quality-gates.md](github-actions-quality-gates.md)). The next step is
+Terraform fmt/validate/safe plan, IaC security checks, and optional secret scanning — still no
+`terraform apply` or deployment.
 
-Alternatives deferred: production hardening (C), new product milestone (D), or portfolio-only
-maintenance (A).
+Observability (Application Insights) remains a parallel high-value track. Alternatives deferred:
+production hardening, new product milestone, or portfolio-only maintenance.

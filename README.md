@@ -14,6 +14,9 @@ curl "https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapp
 
 **Central release document:** [Mobile + Cloud Release Checkpoint](docs/mobile-cloud-release-checkpoint.md)
 
+![Backend CI](https://github.com/fellgar246/project-fittrack-ai/actions/workflows/backend-ci.yml/badge.svg)
+![Flutter CI](https://github.com/fellgar246/project-fittrack-ai/actions/workflows/flutter-ci.yml/badge.svg)
+
 ---
 
 ## Current release status
@@ -114,6 +117,21 @@ See [mobile/README.md](mobile/README.md) for iOS Simulator and Android Emulator 
 
 ---
 
+## CI quality gates (Block 6.1)
+
+Pull requests and pushes to `main` run automated checks via GitHub Actions:
+
+| Check | Workflow | Scope |
+|-------|----------|-------|
+| **Backend quality** | [Backend CI](.github/workflows/backend-ci.yml) | uv sync, Alembic, Ruff lint, pytest + PostgreSQL |
+| **Flutter quality** | [Flutter CI](.github/workflows/flutter-ci.yml) | format, analyze, unit/widget tests |
+
+Full documentation: [docs/github-actions-quality-gates.md](docs/github-actions-quality-gates.md)
+
+No deployment, Azure credentials, or Terraform apply in this block.
+
+---
+
 ## Validation summary
 
 | Check | Result |
@@ -145,7 +163,7 @@ Full evidence: [docs/mobile-cloud-release-checkpoint.md#15-validation-evidence](
 - No edit/delete for measurements, nutrition, workout logs, or progress photos
 - Workout logging is per-exercise, not full session
 - Progress photos: gallery only (no camera, thumbnails, delete)
-- Azure development environment only; no CI/CD or production SLA
+- Azure development environment only; CI quality gates only (no release/deploy pipeline)
 - Full list: [docs/mobile-cloud-release-checkpoint.md#21-known-limitations](docs/mobile-cloud-release-checkpoint.md#21-known-limitations)
 
 ---
@@ -154,6 +172,7 @@ Full evidence: [docs/mobile-cloud-release-checkpoint.md#15-validation-evidence](
 
 | Document | Purpose |
 |----------|---------|
+| [docs/github-actions-quality-gates.md](docs/github-actions-quality-gates.md) | **GitHub Actions CI quality gates (Block 6.1)** |
 | [docs/mobile-cloud-release-checkpoint.md](docs/mobile-cloud-release-checkpoint.md) | **Mobile + Cloud release checkpoint (Block 5.11)** |
 | [docs/backend-cloud-checkpoint.md](docs/backend-cloud-checkpoint.md) | Backend/cloud checkpoint (Block 4.24) |
 | [docs/portfolio-demo.md](docs/portfolio-demo.md) | Portfolio overview and interview narrative |
@@ -183,5 +202,6 @@ This demo provisions **real Azure resources** that may incur cost. See [docs/tea
 
 ## Recommended next phase
 
-**Observability and CI/CD** — automated backend, Flutter, and Terraform validation; see
-[checkpoint recommendation](docs/mobile-cloud-release-checkpoint.md#recommended-next-phase).
+**Block 6.2 — Terraform CI** — fmt, validate, safe plan, and IaC security checks. Backend and
+Flutter quality gates are in place (Block 6.1); see
+[docs/github-actions-quality-gates.md](docs/github-actions-quality-gates.md).
