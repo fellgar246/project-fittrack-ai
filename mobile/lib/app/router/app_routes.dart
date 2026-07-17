@@ -11,6 +11,8 @@ abstract final class AppRoutes {
   static const newWorkoutLog = '/workouts/logs/new';
   static const weeklySummary = '/weekly-summary';
   static const recommendations = '/recommendations';
+  static const progressPhotos = '/progress-photos';
+  static const newProgressPhoto = '/progress-photos/new';
 
   static const bootstrapName = 'bootstrap';
   static const loginName = 'login';
@@ -25,6 +27,11 @@ abstract final class AppRoutes {
   static const newWorkoutLogName = 'newWorkoutLog';
   static const weeklySummaryName = 'weekly-summary';
   static const recommendationsName = 'recommendations';
+  static const progressPhotosName = 'progressPhotos';
+  static const newProgressPhotoName = 'newProgressPhoto';
+  static const progressPhotoDetailName = 'progressPhotoDetail';
 
   static String workoutPlanDetail(String planId) => '/workouts/plans/$planId';
+  static String progressPhotoDetail(String photoId) =>
+      '/progress-photos/$photoId';
 }

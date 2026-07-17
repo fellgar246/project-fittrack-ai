@@ -269,17 +269,20 @@ contracts, readiness rendering, generation lifecycle, timeout strategy, and limi
 
 ## Next steps
 
-1. **Block 5.9 — Flutter Progress Photos UI** — image picker, direct upload, confirm, and gallery on the Block 5.8 API
+1. **Block 5.11 — Mobile + Cloud Release Checkpoint** — portfolio architecture, feature matrix, demo strategy
 2. **Private Networking Plan** (deferred) — VNet, private PostgreSQL, NAT Gateway
 3. **Observability polish** (deferred) — Application Insights dashboards and alerts
 
-## Progress photos (Block 5.8)
+## Progress photos
 
-Backend foundation for secure progress photo storage is implemented:
+Backend foundation (Block 5.8), Flutter client (Block 5.9), and cloud release validation (Block 5.10) are complete:
 
-- Direct-to-Blob upload via user-delegation SAS
+- Direct-to-Blob upload via user-delegation SAS (cloud validated)
 - PostgreSQL metadata with ownership validation
-- Private Azure Blob container (Terraform)
-- Fake provider for local/tests
+- Private Azure Blob container deployed in dev
+- Flutter gallery, upload, confirm, and on-demand read access (cloud E2E validated)
 
-See [docs/progress-photos-architecture.md](docs/progress-photos-architecture.md) and [docs/azure-blob-progress-photos.md](docs/azure-blob-progress-photos.md).
+See [docs/progress-photos-architecture.md](docs/progress-photos-architecture.md),
+[docs/azure-blob-progress-photos.md](docs/azure-blob-progress-photos.md),
+[docs/flutter-progress-photos.md](docs/flutter-progress-photos.md), and
+[docs/progress-photos-release-validation.md](docs/progress-photos-release-validation.md).

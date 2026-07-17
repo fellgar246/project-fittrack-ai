@@ -35,9 +35,10 @@ Block 5.4 — Measurements Flow (completed)
 Block 5.5 — Nutrition Logs Flow (completed)
 Block 5.6 — Workout Flow (completed)
 Block 5.7 — Weekly Summary + AI Recommendation
-Block 5.8 — Progress Photos Storage Foundation (backend)
-Block 5.9 — Flutter Progress Photos UI
-Block 5.10 — Final Portfolio Release
+Block 5.8 — Progress Photos Storage Foundation (backend + cloud, completed)
+Block 5.9 — Flutter Progress Photos UI (completed)
+Block 5.10 — Progress Photos Cloud Deployment + E2E Release Validation (completed)
+Block 5.11 — Final Portfolio Release (planned)
 ```
 
 ## Block 5.1 — Completed
@@ -371,8 +372,44 @@ Still pending separately (not part of Block 5.8):
 - real Azure OpenAI generation
 - persistence, latest recommendation, dashboard sync
 
+## Block 5.9 — Flutter Progress Photos UI — completed (local)
+
+Flutter gallery, upload, confirm, and detail flow on the Block 5.8 API. Cloud E2E smoke pending Block 5.8 deploy.
+
+### Delivered
+
+- Feature module `mobile/lib/features/progress_photos/` (data, application, presentation)
+- Gallery picker, preview, capture date, optional notes, client-side MIME/size validation
+- Three-step upload: authorization → direct blob PUT → confirm with retry-confirm recovery
+- Isolated `ProgressPhotoUploadClient` (no JWT on blob requests)
+- In-memory read access cache with expiry renewal
+- SAS URL redaction for logs and errors
+- Protected routes `/progress-photos`, `/progress-photos/new`, `/progress-photos/:photoId`
+- Dashboard quick action entry
+- iOS photo library permission; Android Photo Picker without broad storage permissions
+- 30 new automated tests (319 total); `flutter analyze` clean; macOS build verified
+
+See [docs/flutter-progress-photos.md](flutter-progress-photos.md).
+
+### Pending for final acceptance
+
+- None for Blocks 5.8–5.10 (see [progress-photos-release-validation.md](progress-photos-release-validation.md))
+
+## Block 5.10 — Progress Photos Cloud Release Validation — completed
+
+Cloud deployment and end-to-end validation for progress photos and Block 5.7 interactive smoke.
+
+### Validated in cloud
+
+- Terraform blob storage aligned (`block-5.8-amd64-fix` image)
+- Backend cloud smoke: upload → PUT → confirm → list → access → isolation
+- Flutter cloud E2E via integration test (repository + blob client, no bearer on PUT)
+- Block 5.7: not-ready / ready users, Azure OpenAI recommendation, persistence
+
+See [progress-photos-release-validation.md](progress-photos-release-validation.md).
+
 ## Next block
 
 ```text
-Block 5.9 — Flutter Progress Photos UI
+Block 5.11 — Mobile + Cloud Release Checkpoint (portfolio)
 ```

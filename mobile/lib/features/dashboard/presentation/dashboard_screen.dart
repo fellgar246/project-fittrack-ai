@@ -50,6 +50,8 @@ class DashboardScreen extends ConsumerWidget {
             onOpenNutrition: () => _openNutrition(context, controller),
             onOpenWorkouts: () => _openWorkouts(context, controller),
             onOpenWeeklySummary: () => _openWeeklySummary(context, controller),
+            onOpenProgressPhotos: () =>
+                _openProgressPhotos(context, controller),
           ),
       },
     );
@@ -96,6 +98,16 @@ Future<void> _openWeeklySummary(
   }
 }
 
+Future<void> _openProgressPhotos(
+  BuildContext context,
+  DashboardController controller,
+) async {
+  final created = await context.push<bool>(AppRoutes.progressPhotos);
+  if (created == true) {
+    await controller.refresh();
+  }
+}
+
 class _DashboardContent extends StatelessWidget {
   const _DashboardContent({
     required this.state,
@@ -108,6 +120,7 @@ class _DashboardContent extends StatelessWidget {
     required this.onOpenNutrition,
     required this.onOpenWorkouts,
     required this.onOpenWeeklySummary,
+    required this.onOpenProgressPhotos,
   });
 
   final DashboardState state;
@@ -120,6 +133,7 @@ class _DashboardContent extends StatelessWidget {
   final Future<void> Function() onOpenNutrition;
   final Future<void> Function() onOpenWorkouts;
   final Future<void> Function() onOpenWeeklySummary;
+  final Future<void> Function() onOpenProgressPhotos;
 
   @override
   Widget build(BuildContext context) {
@@ -178,6 +192,11 @@ class _DashboardContent extends StatelessWidget {
                 label: 'Weekly summary',
                 icon: Icons.calendar_view_week_outlined,
                 onTap: onOpenWeeklySummary,
+              ),
+              QuickAction(
+                label: 'Progress photos',
+                icon: Icons.photo_library_outlined,
+                onTap: onOpenProgressPhotos,
               ),
               QuickAction(
                 label: 'Recommendation',

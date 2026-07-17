@@ -15,6 +15,12 @@ abstract final class ApiEndpoints {
   static const workoutLogs = '/workout-logs';
   static const weeklyRecommendation = '/recommendations/weekly';
   static const latestRecommendation = '/recommendations/latest';
+  static const progressPhotos = '/progress-photos';
+  static const progressPhotoUploadRequests = '/progress-photos/upload-requests';
 
   static String workoutPlanById(String id) => '/workout-plans/$id';
+  static String progressPhotoConfirm(String photoId) =>
+      '/progress-photos/$photoId/confirm';
+  static String progressPhotoAccess(String photoId) =>
+      '/progress-photos/$photoId/access';
 }

@@ -164,23 +164,18 @@ Authorization: Bearer <JWT>
 | Predictable paths | UUID photo id + random blob suffix |
 | Account key exposure | Managed Identity + RBAC, shared key disabled |
 
-## Block 5.9 handoff
+## Block 5.9 handoff — implemented
 
-Flutter will implement:
+Flutter (Block 5.9) implements:
 
-1. image picker and preview
+1. Gallery image picker and preview
 2. `POST /progress-photos/upload-requests`
-3. direct PUT to signed URL with required headers
-4. `POST /progress-photos/{id}/confirm`
-5. gallery using `GET /progress-photos` + `POST /progress-photos/{id}/access`
+3. Direct PUT to signed URL with required headers (separate Dio client, no bearer)
+4. `POST /progress-photos/{id}/confirm` with retry-confirm recovery
+5. Gallery using `GET /progress-photos` + `POST /progress-photos/{id}/access`
 
-No Flutter functional changes were made in Block 5.8.
+See [docs/flutter-progress-photos.md](flutter-progress-photos.md).
 
 ## Block 5.7 interactive smoke
 
-Still pending separately:
-
-- user not ready / user ready flows
-- real Azure OpenAI generation
-- persistence and latest recommendation
-- dashboard sync
+Completed in Block 5.10 — see [progress-photos-release-validation.md](progress-photos-release-validation.md).

@@ -1641,6 +1641,8 @@ Alternativas posteriores (deferred):
 Block 5.8 added `modules/blob_storage` (private Storage account + container + RBAC). Enable with
 `create_blob_storage = true` and cumulative tfvars; see
 [`docs/azure-blob-progress-photos.md`](../../../docs/azure-blob-progress-photos.md).
+Cloud release validation (Block 5.10):
+[`docs/progress-photos-release-validation.md`](../../../docs/progress-photos-release-validation.md).
 
 Documentación checkpoint: [`docs/backend-cloud-checkpoint.md`](../../../docs/backend-cloud-checkpoint.md).
 

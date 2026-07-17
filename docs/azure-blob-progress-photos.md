@@ -90,13 +90,15 @@ Apply only after reviewing the plan. Expect adds for storage account, container,
 
 ## Deployment image tag
 
-After backend changes are validated, publish an immutable amd64 image:
+Cloud-validated tag:
 
 ```text
-block-5.8-amd64
+block-5.8-amd64-fix
 ```
 
-Update `api_image_tag` in Terraform only after the image exists in ACR.
+(`aiohttp` fix for async Azure SDK). Update `api_image_tag` in local tfvars after the image exists in ACR.
+
+Release validation: [progress-photos-release-validation.md](progress-photos-release-validation.md).
 
 ## Cloud smoke (manual)
 
@@ -104,6 +106,12 @@ Use a dedicated smoke user and a small fixture image. Redact SAS output:
 
 ```text
 https://<account>.blob.core.windows.net/<container>/<blob>?<redacted>
+```
+
+Automated script (Block 5.10):
+
+```bash
+./scripts/smoke_progress_photos_cloud.sh
 ```
 
 Flow:

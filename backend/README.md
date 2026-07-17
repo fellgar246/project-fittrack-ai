@@ -1979,6 +1979,15 @@ cd backend
 ./scripts/smoke_progress_photos.sh
 ```
 
+### Cloud smoke (Block 5.10)
+
+```bash
+./scripts/smoke_progress_photos_cloud.sh
+./scripts/smoke_weekly_recommendations_cloud.sh
+```
+
+See [`docs/progress-photos-release-validation.md`](../docs/progress-photos-release-validation.md).
+
 ## Siguiente paso recomendado
 
-**Block 5.9 — Flutter Progress Photos UI**: image picker, direct upload, confirm flow, and gallery on top of the Block 5.8 API contract. See [`docs/mobile-flutter-transition.md`](../docs/mobile-flutter-transition.md).
+**Block 5.11 — Mobile + Cloud Release Checkpoint** (portfolio documentation). See [`docs/mobile-flutter-transition.md`](../docs/mobile-flutter-transition.md).

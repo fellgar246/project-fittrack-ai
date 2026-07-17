@@ -11,6 +11,8 @@ import 'package:fittrack_ai/features/measurements/data/measurements_providers.da
 import 'package:fittrack_ai/features/nutrition/data/nutrition_providers.dart';
 import 'package:fittrack_ai/features/measurements/data/measurements_repository.dart';
 import 'package:fittrack_ai/features/nutrition/data/nutrition_repository.dart';
+import 'package:fittrack_ai/features/progress_photos/data/progress_photos_providers.dart';
+import 'package:fittrack_ai/features/progress_photos/data/progress_photos_repository.dart';
 import 'package:fittrack_ai/features/workouts/data/workouts_providers.dart';
 import 'package:fittrack_ai/features/weekly_summary/data/weekly_summary_providers.dart';
 import 'package:fittrack_ai/features/weekly_summary/data/weekly_summary_repository.dart';
@@ -23,6 +25,7 @@ import 'fake_auth_repository.dart';
 import 'fake_dashboard.dart';
 import 'fake_measurements.dart';
 import 'fake_nutrition.dart';
+import 'fake_progress_photos.dart';
 import 'fake_weekly_summary.dart';
 import 'fake_workouts.dart';
 
@@ -38,6 +41,7 @@ Widget buildTestApp({
   NutritionRepository? nutritionRepository,
   WorkoutsRepository? workoutsRepository,
   WeeklySummaryRepository? weeklySummaryRepository,
+  ProgressPhotosRepository? progressPhotosRepository,
   AuthState? initialAuthState,
 }) {
   final repository = authRepository ?? FakeAuthRepository();
@@ -47,6 +51,8 @@ Widget buildTestApp({
   final workouts = workoutsRepository ?? FakeWorkoutsRepository();
   final weeklySummary =
       weeklySummaryRepository ?? FakeWeeklySummaryRepository();
+  final progressPhotos =
+      progressPhotosRepository ?? FakeProgressPhotosRepository();
 
   return ProviderScope(
     overrides: [
@@ -57,6 +63,7 @@ Widget buildTestApp({
       nutritionRepositoryProvider.overrideWithValue(nutrition),
       workoutsRepositoryProvider.overrideWithValue(workouts),
       weeklySummaryRepositoryProvider.overrideWithValue(weeklySummary),
+      progressPhotosRepositoryProvider.overrideWithValue(progressPhotos),
       if (initialAuthState != null)
         authControllerProvider.overrideWith(
           (ref) => PresetAuthController(repository, initialAuthState),

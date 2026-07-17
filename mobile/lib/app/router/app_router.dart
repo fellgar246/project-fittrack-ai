@@ -14,6 +14,10 @@ import '../../features/nutrition/presentation/nutrition_screen.dart';
 import '../../features/workouts/presentation/create_workout_log_screen.dart';
 import '../../features/workouts/presentation/workout_plan_detail_screen.dart';
 import '../../features/workouts/presentation/workouts_screen.dart';
+import '../../features/progress_photos/data/models/progress_photo.dart';
+import '../../features/progress_photos/presentation/create_progress_photo_screen.dart';
+import '../../features/progress_photos/presentation/progress_photo_detail_screen.dart';
+import '../../features/progress_photos/presentation/progress_photos_screen.dart';
 import '../../features/weekly_summary/presentation/weekly_summary_screen.dart';
 import 'app_routes.dart';
 import 'auth_router_refresh.dart';
@@ -122,6 +126,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.weeklySummary,
         name: AppRoutes.weeklySummaryName,
         builder: (context, state) => const WeeklySummaryScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.progressPhotos,
+        name: AppRoutes.progressPhotosName,
+        builder: (context, state) => const ProgressPhotosScreen(),
+        routes: [
+          GoRoute(
+            path: 'new',
+            name: AppRoutes.newProgressPhotoName,
+            builder: (context, state) => const CreateProgressPhotoScreen(),
+          ),
+          GoRoute(
+            path: ':photoId',
+            name: AppRoutes.progressPhotoDetailName,
+            builder: (context, state) => ProgressPhotoDetailScreen(
+              photoId: state.pathParameters['photoId']!,
+              initialPhoto: state.extra as ProgressPhoto?,
+            ),
+          ),
+        ],
       ),
       GoRoute(
         path: AppRoutes.recommendations,

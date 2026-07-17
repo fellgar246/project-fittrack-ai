@@ -62,6 +62,18 @@ flutter pub get
 - Dashboard refresh after a successful create via navigation result + `DashboardController.refresh()`
 - Metric display convention: calories as integer; macros in grams (`g`)
 
+## Progress photos flow
+
+- Protected routes: `/progress-photos`, `/progress-photos/new`, `/progress-photos/:photoId`
+- Gallery with metadata-only list, on-demand read access URLs, empty/error/loading states,
+  pull-to-refresh, and retry
+- Create flow: gallery picker, preview, capture date, optional notes, direct blob upload, confirm
+- Separate blob upload client (no JWT on PUT to Azure SAS URL)
+- In-memory access URL cache with expiry renewal; SAS redaction in logs and errors
+- Dashboard quick action entry; gallery refresh after successful create via `pop(true)`
+
+See [docs/flutter-progress-photos.md](../docs/flutter-progress-photos.md).
+
 ## Workout flow
 
 - Protected routes: `/workouts`, `/workouts/plans/:planId`, `/workouts/logs/new`
@@ -118,7 +130,7 @@ flutter test
 lib/
 ├── app/          # App shell, router, theme
 ├── core/         # Config, network, errors, storage, validation
-├── features/     # Auth, bootstrap, dashboard, measurements, nutrition, workouts
+├── features/     # Auth, bootstrap, dashboard, measurements, nutrition, workouts, progress_photos
 └── shared/       # Reusable widgets
 ```
 
@@ -128,8 +140,8 @@ lib/
 - `go_router` — declarative navigation with auth guards
 - `dio` — HTTP client
 - `flutter_secure_storage` — secure JWT persistence
-
-No new dependencies were added in Block 5.6.
+- `image_picker` — gallery image selection (Block 5.9)
+- `mime` — content-type detection for uploads (Block 5.9)
 
 ## Current scope
 
@@ -137,7 +149,8 @@ No new dependencies were added in Block 5.6.
 - Theme (light/dark)
 - Navigation (`/`, `/login`, `/register`, `/dashboard`, `/measurements`, `/measurements/new`,
   `/nutrition`, `/nutrition/new`, `/workouts`, `/workouts/plans/:planId`, `/workouts/logs/new`,
-  `/weekly-summary`, `/recommendations`)
+  `/weekly-summary`, `/recommendations`, `/progress-photos`, `/progress-photos/new`,
+  `/progress-photos/:photoId`)
 - Environment configuration via `--dart-define`
 - Real authentication flow against FastAPI
 - Bootstrap session restoration
@@ -147,7 +160,9 @@ No new dependencies were added in Block 5.6.
 - Functional nutrition list/create/summary flow with dashboard sync
 - Functional workouts list/plan-detail/exercise-log flow with dashboard sync
 - Functional weekly summary and AI recommendation flow with dashboard sync
-- Unit and widget coverage for auth, dashboard, measurements, nutrition, workouts, and weekly summary layers
+- Functional progress photos gallery, upload, and detail flow with dashboard quick action
+- Unit and widget coverage for auth, dashboard, measurements, nutrition, workouts, weekly summary,
+  and progress photos layers
 
 ## Weekly summary and AI recommendation
 
@@ -182,11 +197,6 @@ flutter test
 - No recommendation history unless backend adds an endpoint
 - No streaming, chat, offline cache, or direct Azure OpenAI access
 - No automatic recommendation generation on screen open
-- No progress photos
-- Azure Blob Storage and mobile observability remain deferred
-
-## Next block
-
-```text
-Block 5.8 — Flutter Progress Photos + Azure Blob Storage
-```
+- No progress photo delete, edit, camera capture, or before/after comparison
+- Progress photos cloud E2E validated (Block 5.10); see [docs/progress-photos-release-validation.md](../docs/progress-photos-release-validation.md)
+- Mobile observability remains deferred
