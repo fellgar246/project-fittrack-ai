@@ -105,7 +105,7 @@ jobs:
       vars.TERRAFORM_CLOUD_PLAN_ENABLED == 'true' &&
       (github.event_name != 'pull_request' ||
        github.event.pull_request.head.repo.fork == false) &&
-      secrets.AZURE_CLIENT_ID != ''
+      vars.AZURE_PLAN_CLIENT_ID != ''
 
     permissions:
       contents: read
@@ -118,9 +118,11 @@ jobs:
     env:
       ARM_USE_OIDC: true
       ARM_USE_AZUREAD: true
-      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_CLIENT_ID: ${{ vars.AZURE_PLAN_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      TF_PLAN_FILE: ${{ runner.temp }}/terraform.tfplan
+      TF_PLAN_JSON: ${{ runner.temp }}/terraform-plan.json
 
     steps:
       - name: Checkout
@@ -134,9 +136,21 @@ jobs:
       - name: Azure login (OIDC)
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ vars.AZURE_PLAN_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Verify Azure subscription
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(az account show --query id -o tsv)"
+          expected="${{ vars.AZURE_SUBSCRIPTION_ID }}"
+          if [[ "${actual}" != "${expected}" ]]; then
+            echo "Unexpected subscription: ${actual} (expected ${expected})"
+            exit 1
+          fi
+          echo "Subscription verified."
 
       - name: Terraform init (remote backend)
         run: |
@@ -152,7 +166,8 @@ jobs:
         env:
           TF_VAR_owner: ${{ vars.TF_VAR_owner }}
           TF_VAR_unique_suffix: ${{ vars.TF_VAR_unique_suffix }}
-          TF_VAR_api_ai_provider: ${{ secrets.TF_VAR_api_ai_provider }}
+          TF_VAR_api_ai_provider: ${{ vars.TF_VAR_api_ai_provider }}
+          TF_VAR_api_image_tag: ${{ vars.TF_VAR_api_image_tag }}
           TF_VAR_api_azure_openai_endpoint: ${{ secrets.TF_VAR_api_azure_openai_endpoint }}
           TF_VAR_api_azure_openai_api_key: ${{ secrets.TF_VAR_api_azure_openai_api_key }}
           TF_VAR_api_azure_openai_deployment: ${{ secrets.TF_VAR_api_azure_openai_deployment }}
@@ -163,8 +178,9 @@ jobs:
             -input=false \
             -no-color \
             -detailed-exitcode \
+            -var-file="terraform.azure-openai.example.tfvars" \
             -var-file="terraform.blob-storage.example.tfvars" \
-            -out="terraform-ci.tfplan"
+            -out="${TF_PLAN_FILE}"
           exit_code=$?
           set -e
 
@@ -181,15 +197,30 @@ jobs:
           echo "exit_code=${exit_code}" >> "${GITHUB_OUTPUT}"
 
       - name: Analyze plan safety
+        id: safety
         shell: bash
         run: |
-          terraform show -json terraform-ci.tfplan > terraform-plan.json
-          python3 ../../../scripts/check_plan_safety.py terraform-plan.json \
+          terraform show -json "${TF_PLAN_FILE}" > "${TF_PLAN_JSON}"
+          python3 ../../../scripts/check_plan_safety.py "${TF_PLAN_JSON}" \
             --summary-file "${GITHUB_STEP_SUMMARY}"
+
+      - name: Write plan summary metadata
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo ""
+            echo "### Plan metadata"
+            echo "- Commit: \`${GITHUB_SHA::7}\`"
+            echo "- Ref: \`${GITHUB_REF}\`"
+            echo "- Event: \`${GITHUB_EVENT_NAME}\`"
+            echo "- Exit code: \`${{ steps.plan.outputs.exit_code }}\`"
+            echo "- Safety: ${{ steps.safety.outcome == 'success' && 'Passed' || 'Failed' }}"
+          } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Remove sensitive plan files
         if: always()
-        run: rm -f terraform-ci.tfplan terraform-plan.json
+        run: rm -f "${TF_PLAN_FILE}" "${TF_PLAN_JSON}"
 
   terraform-plan-skipped:
     name: Terraform plan safety
@@ -201,7 +232,7 @@ jobs:
         vars.TERRAFORM_CLOUD_PLAN_ENABLED == 'true' &&
         (github.event_name != 'pull_request' ||
          github.event.pull_request.head.repo.fork == false) &&
-        secrets.AZURE_CLIENT_ID != ''
+        vars.AZURE_PLAN_CLIENT_ID != ''
       )
 
     steps:
@@ -212,8 +243,12 @@ jobs:
             echo
             if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.pull_request.head.repo.fork }}" == "true" ]]; then
               echo "Cloud plan skipped because Azure credentials are unavailable for fork pull requests."
+            elif [[ "${{ vars.TERRAFORM_CLOUD_PLAN_ENABLED }}" != "true" ]]; then
+              echo "Cloud plan skipped — set repository variable \`TERRAFORM_CLOUD_PLAN_ENABLED=true\` after OIDC bootstrap."
+            elif [[ -z "${{ vars.AZURE_PLAN_CLIENT_ID }}" ]]; then
+              echo "Cloud plan skipped — configure \`AZURE_PLAN_CLIENT_ID\` repository variable after OIDC bootstrap."
             else
-              echo "Cloud plan skipped — Azure OIDC, remote state backend, and real tfvars inputs are configured in Block 6.3."
+              echo "Cloud plan skipped — see Block 6.3 documentation."
             fi
             echo
             echo "Static validation and security checks completed in the **Terraform quality** job."

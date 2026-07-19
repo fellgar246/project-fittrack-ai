@@ -1501,6 +1501,16 @@ uv sync --frozen → Alembic upgrade head → ruff check → pytest
 Uses ephemeral PostgreSQL 16 with fake AI and storage providers (no Azure). Details:
 [docs/github-actions-quality-gates.md](../docs/github-actions-quality-gates.md).
 
+### Protected deployment (Block 6.3)
+
+Manual cloud deployment via [`.github/workflows/backend-deploy.yml`](../.github/workflows/backend-deploy.yml):
+
+```text
+workflow_dispatch (main) → environment: development → ACR build → Terraform apply → Alembic → health
+```
+
+Documentation: [docs/azure-oidc-protected-deployment.md](../docs/azure-oidc-protected-deployment.md)
+
 ## Decisiones técnicas — Bloque 2.2
 
 **¿Por qué JWT para este MVP?** Es stateless: no requiere tabla de sesiones ni

@@ -243,29 +243,31 @@ terraform plan \
 
 ---
 
-## 16. Azure authentication (Block 6.3)
+## 16. Azure authentication (Block 6.3 — implemented)
 
-When enabled, the plan job will use:
+The plan job uses:
 
-- Azure OIDC (`azure/login@v2`)
+- Azure OIDC (`azure/login@v2`) with `id-fittrack-github-plan`
 - `ARM_USE_OIDC=true`, `ARM_USE_AZUREAD=true`
-- No long-lived client secrets
-- Read-only scope sufficient for plan + state access
+- `AZURE_PLAN_CLIENT_ID` repository variable (not a client secret)
+- Subscription guard after login
 
-Repository variable gate: `TERRAFORM_CLOUD_PLAN_ENABLED=true` (default: unset/off).
+Repository variable gate: `TERRAFORM_CLOUD_PLAN_ENABLED=true`.
+
+Full runbook: [docs/azure-oidc-protected-deployment.md](azure-oidc-protected-deployment.md)
 
 ---
 
-## 17. Remote state (Block 6.3)
+## 17. Remote state (Block 6.3 — implemented)
 
-Remote backend (Azure Storage) will be configured in Block 6.3. The scaffolded plan job expects GitHub variables:
+| Variable | Value |
+|----------|-------|
+| `TF_BACKEND_RESOURCE_GROUP_NAME` | `rg-fittrack-ai-dev` |
+| `TF_BACKEND_STORAGE_ACCOUNT_NAME` | `stfittrackaidevtf01` |
+| `TF_BACKEND_CONTAINER_NAME` | `tfstate` |
+| `TF_BACKEND_STATE_KEY` | `fittrack-ai-dev.tfstate` |
 
-| Variable | Purpose |
-|----------|---------|
-| `TF_BACKEND_RESOURCE_GROUP_NAME` | State storage RG |
-| `TF_BACKEND_STORAGE_ACCOUNT_NAME` | State storage account |
-| `TF_BACKEND_CONTAINER_NAME` | Blob container |
-| `TF_BACKEND_STATE_KEY` | State blob key |
+Backend block in `environments/dev/versions.tf` uses `use_azuread_auth = true`.
 
 ---
 
@@ -275,7 +277,7 @@ Remote backend (Azure Storage) will be configured in Block 6.3. The scaffolded p
 |-------|---------|------------------|
 | `ARM_SUBSCRIPTION_ID` | No | GitHub secret / var |
 | `ARM_TENANT_ID` | No | GitHub secret |
-| `ARM_CLIENT_ID` | No | GitHub secret (OIDC app) |
+| `ARM_CLIENT_ID` | No | `AZURE_PLAN_CLIENT_ID` repository variable |
 | `api_ai_provider` | Low | Secret — **must be `azure` for real state** |
 | `api_azure_openai_endpoint` | Yes | `TF_VAR_api_azure_openai_endpoint` |
 | `api_azure_openai_api_key` | Yes | `TF_VAR_api_azure_openai_api_key` |

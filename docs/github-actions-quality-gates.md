@@ -411,19 +411,22 @@ This block is **quality gates only**, not release automation.
 
 ---
 
-## 23. Next block
+## 23. Block 6.3 — OIDC + protected deployment (implemented)
 
-**Block 6.3 — Azure OIDC + Protected Backend Deployment**
+See [docs/azure-oidc-protected-deployment.md](azure-oidc-protected-deployment.md).
 
-Planned scope:
+| Workflow | Purpose |
+|----------|---------|
+| [terraform-ci.yml](../.github/workflows/terraform-ci.yml) | Static quality + cloud plan with safety gate |
+| [backend-deploy.yml](../.github/workflows/backend-deploy.yml) | Manual protected deploy to `development` |
 
-- Azure OIDC federated identity for GitHub Actions
-- Remote Terraform state backend
-- Enable cloud-backed `terraform plan` with real inputs (never example-only OpenAI tfvars)
-- Protected `terraform apply`, ACR push, migrations, smoke tests
-- No long-lived Azure client secrets
+Configuration checklist: [github-configuration-checklist-block-6.3.md](github-configuration-checklist-block-6.3.md)
 
-Terraform static CI (Block 6.2) is documented in [docs/terraform-ci-security.md](terraform-ci-security.md).
+---
+
+## 24. Next block
+
+**Block 6.4 — Structured Logging + Request Correlation**
 
 ---
 
@@ -435,7 +438,7 @@ Static Terraform validation and security checks are implemented in
 | Check | Status |
 |-------|--------|
 | **Terraform quality** | Implemented — fmt, validate, Trivy, Gitleaks, hygiene |
-| **Terraform plan safety** | Scaffolded — skipped until Block 6.3 |
+| **Terraform plan safety** | Implemented — OIDC cloud plan when `TERRAFORM_CLOUD_PLAN_ENABLED=true` |
 
 See [docs/terraform-ci-security.md](terraform-ci-security.md) for full details.
 

@@ -37,7 +37,9 @@ Pull requests touching `infra/terraform/**` run the **Terraform quality** check 
 - Gitleaks secret scan
 - Prohibited file hygiene check (no tracked state, local tfvars, or plan files)
 
-Cloud-backed `terraform plan` is scaffolded but **skipped** until Block 6.3 (Azure OIDC + remote state).
+Cloud-backed `terraform plan` with OIDC is enabled in Block 6.3 when `TERRAFORM_CLOUD_PLAN_ENABLED=true`.
+Protected backend deployment: [docs/azure-oidc-protected-deployment.md](../../../docs/azure-oidc-protected-deployment.md).
+Bootstrap: [bootstrap/github-oidc/README.md](bootstrap/github-oidc/README.md).
 Full documentation: [docs/terraform-ci-security.md](../../../docs/terraform-ci-security.md).
 
 - `terraform.azure-openai.local.tfvars` is **local and gitignored** — never commit it.
@@ -331,18 +333,28 @@ common_tags = {
 }
 ```
 
-## 8. State local por ahora
+## 8. Remote state (Block 6.3)
 
-El estado se guarda localmente (`terraform.tfstate`, ignorado por git). Es aceptable para un
-proyecto de portfolio de un solo colaborador en esta etapa temprana.
+Terraform state is stored remotely in Azure Blob Storage:
 
-## 9. Por qué no remote state todavía
+| Setting | Value |
+|---------|-------|
+| Storage account | `stfittrackaidevtf01` |
+| Container | `tfstate` |
+| State key | `fittrack-ai-dev.tfstate` |
+| Auth | Azure AD (`use_azuread_auth = true`) |
 
-Remote state (Azure Storage Account + blob container como backend) requiere un recurso de Azure
-que primero debe existir — sería crear infraestructura real antes de tener la base lista. Se
-implementará en un bloque posterior, una vez exista al menos el Resource Group (Bloque 4.4).
+Bootstrap and migration: [bootstrap/github-oidc/README.md](bootstrap/github-oidc/README.md).
 
-## 10. Por qué no crear recursos costosos todavía
+## 9. State local (historical — pre Block 6.3)
+
+El estado se guardaba localmente (`terraform.tfstate`, ignorado por git). Block 6.3 migró el state al backend remoto anterior.
+
+## 10. Por qué no remote state antes de Block 6.3 (historical)
+
+Remote state requería un storage account dedicado y bootstrap OIDC — implementado en Block 6.3.
+
+## 11. Por qué no crear recursos costosos todavía
 
 Los bloques 4.3 y 4.4 son exclusivamente *foundation* y *estructura*: provider, variables,
 naming, tags, outputs, módulos y documentación. El único recurso declarado en todo el árbol

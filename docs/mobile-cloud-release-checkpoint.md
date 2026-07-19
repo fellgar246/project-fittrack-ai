@@ -656,7 +656,7 @@ No exact monthly figures are documented here; consult Azure Cost Management for 
 
 - Refresh token / rotation
 - Progress-photo orphan cleanup job
-- Terraform cloud-backed plan (Block 6.3 — OIDC + remote state)
+- Terraform cloud-backed plan + protected deploy (Block 6.3 — [docs/azure-oidc-protected-deployment.md](azure-oidc-protected-deployment.md))
 - Production-grade observability (Application Insights)
 - Dedicated staging/production environments
 
@@ -859,19 +859,19 @@ Alternative: `mobile-cloud-checkpoint`
 | Portfolio documentation (5.11) | Complete |
 | CI quality gates — backend + Flutter (6.1) | Complete |
 | CI quality gates — Terraform static (6.2) | Complete (GitHub run pending commit/push) |
-| CI cloud-backed Terraform plan (6.3) | Pending |
+| CI cloud-backed Terraform plan + protected deploy (6.3) | Implemented — GitHub validation pending |
 | Production readiness | Not claimed |
 
 ---
 
 ## Recommended next phase
 
-**Block 6.3 — Azure OIDC + Protected Backend Deployment**
+**Block 6.4 — Structured Logging + Request Correlation**
 
-Terraform static CI and security checks are implemented in Block 6.2
-([docs/terraform-ci-security.md](terraform-ci-security.md)). The next step is Azure OIDC,
-remote Terraform state, cloud-backed safe plan, and protected apply — still no unreviewed
-deployment.
+Block 6.3 OIDC, remote state, cloud plan, and protected backend deployment are documented in
+[docs/azure-oidc-protected-deployment.md](azure-oidc-protected-deployment.md). Complete GitHub
+configuration per [github-configuration-checklist-block-6.3.md](github-configuration-checklist-block-6.3.md)
+before first cloud plan/deploy run.
 
 Observability (Application Insights) remains a parallel high-value track. Alternatives deferred:
 production hardening, new product milestone, or portfolio-only maintenance.

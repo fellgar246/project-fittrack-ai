@@ -18,6 +18,8 @@ curl "https://ca-fittrack-ai-api-dev.wittydune-377fa2b0.eastus.azurecontainerapp
 ![Flutter CI](https://github.com/fellgar246/project-fittrack-ai/actions/workflows/flutter-ci.yml/badge.svg)
 ![Terraform CI](https://github.com/fellgar246/project-fittrack-ai/actions/workflows/terraform-ci.yml/badge.svg)
 
+**CI/CD (Block 6.3):** [Azure OIDC + Protected Backend Deployment](docs/azure-oidc-protected-deployment.md)
+
 ---
 
 ## Current release status
@@ -32,7 +34,8 @@ portfolio-grade, incrementally implemented system — not a production SLA relea
 | Alembic revision | `a8c3b1d92e47` |
 | Backend tests | 100 passed |
 | Flutter tests | 319 passed (+ 1 cloud E2E opt-in skipped) |
-| Terraform plan | No changes |
+| Terraform plan | No changes (remote state + OIDC — Block 6.3) |
+| CI/CD | [OIDC plan + protected deploy](docs/azure-oidc-protected-deployment.md) |
 | Cloud health | HTTP 200 |
 
 Prior backend-only checkpoint: [docs/backend-cloud-checkpoint.md](docs/backend-cloud-checkpoint.md)
